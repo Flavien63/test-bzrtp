@@ -1,0 +1,3 @@
+[submodule "bzrtp"]
+	path = bzrtp
+	url = https://github.com/BelledonneCommunications/bzrtp.git
