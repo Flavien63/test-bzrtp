@@ -1,7 +1,7 @@
 CC = gcc
 OPT = -c -Wextra -Wall -g -DONE=1
-LDFLAGS = -Ibzrtp-master/include
-LDLIBS = -Lbzrtp-master -lbzrtp
+LDFLAGS = -Ibzrtp/include
+LDLIBS = -Lbzrtp -lbzrtp
 
 prog : main.o contact.o
 	$(CC) main.o contact.o $(LDFLAGS) $(LDLIBS) -o prog
