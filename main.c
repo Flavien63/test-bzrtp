@@ -144,11 +144,22 @@ int main(int args, char *argv[])
 
     if (retval)
     {
-        printf("Erreur de mise à jour du nombre de séquence : %d\n", retval);
+        printf("Erreur de mise à jour du paquet Hello de Bob : %d\n", retval);
         return ERROR_UPDATE_PACKET;
     }
 
-    retval = bzrtp_processMessage(contextAlice, AliceSSRC, contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->packetString, (contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t));
+    Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
+    
+    for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
+    {
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->packetString[i];
+    }
+
+    Alice->receiveQueueIndex++;
+
+    retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
+
+    Alice->previousReceiveQueueIndex++;
 
     if (retval)
     {
@@ -170,11 +181,20 @@ int main(int args, char *argv[])
     retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
     Bob->previousReceiveQueueIndex++;
+    Bob->sendQueueIndex--;
 
     if (retval)
     {
         printf("Erreur d'envoi du HelloAck d'Alice : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
+    }
+
+    retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[COMMIT_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
+
+    if (retval)
+    {
+        printf("Erreur de mise à jour du paquet Commit de Bob : %d\n", retval);
+        return ERROR_UPDATE_PACKET;
     }
 
     printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
