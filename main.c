@@ -16,19 +16,6 @@ int sendData(void * clientData, const uint8_t * packetString, uint16_t packetLen
     return 0;
 }
 
-int initCallbaks(bzrtpContext_t * context)
-{
-    bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
-
-    cbs->bzrtp_sendData = sendData;
-    cbs->bzrtp_contextReadyForExportedKeys = NULL;
-    cbs->bzrtp_srtpSecretsAvailable = NULL;
-    cbs->bzrtp_startSrtpSession = NULL;
-    cbs->bzrtp_statusMessage = NULL;
-    
-    return bzrtp_setCallbacks(context, cbs);
-}
-
 int main(int args, char *argv[])
 {
     bzrtpContext_t * contextAlice = bzrtp_createBzrtpContext();
@@ -75,7 +62,15 @@ int main(int args, char *argv[])
         return ERROR_INIT_CONTEXT;
     }
 
-    retval = initCallbaks(contextAlice) || initCallbaks(contextBob);
+     bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
+
+    cbs->bzrtp_sendData = sendData;
+    cbs->bzrtp_contextReadyForExportedKeys = NULL;
+    cbs->bzrtp_srtpSecretsAvailable = NULL;
+    cbs->bzrtp_startSrtpSession = NULL;
+    cbs->bzrtp_statusMessage = NULL;
+    
+    retval = bzrtp_setCallbacks(contextAlice, cbs) || bzrtp_setCallbacks(contextBob, cbs);
 
     if (retval)
     {
@@ -106,11 +101,79 @@ int main(int args, char *argv[])
         return ERROR_START_CHANNEL;
     }
 
-    retval = bzrtp_processMessage(contextBob, BobSSRC, contextAlice->channelContext[AliceSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->packetString, (ZRTP_PACKET_HEADER_LENGTH + contextAlice->channelContext[AliceSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t));
+    Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = (ZRTP_PACKET_HEADER_LENGTH + contextAlice->channelContext[AliceSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
+
+    for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+    {
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = contextAlice->channelContext[AliceSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->packetString[i];
+    }
+
+    Bob->receiveQueueIndex++;
+
+    retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+    Bob->previousReceiveQueueIndex++;
 
     if (retval)
     {
-        printf("Erreur d'envoi du Hello : %d\n", retval);
+        printf("Erreur d'envoi du Hello d'Alice : %d\n", retval);
+        return ERROR_PROCESS_MESSAGE;
+    }
+
+    Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = Bob->sendQueue[Bob->previousSendQueueIndex].packetLength;
+
+    for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
+    {
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = Bob->sendQueue[Bob->previousSendQueueIndex].packetString[i];
+    }
+
+    Bob->previousSendQueueIndex++;
+    Alice->receiveQueueIndex++;
+
+    retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
+
+    Alice->previousReceiveQueueIndex++;
+
+    if (retval)
+    {
+        printf("Erreur dans l'envoi du HelloAck de Bob : %d\n", retval);
+        return ERROR_PROCESS_MESSAGE;
+    }
+
+    retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
+
+    if (retval)
+    {
+        printf("Erreur de mise à jour du nombre de séquence : %d\n", retval);
+        return ERROR_UPDATE_PACKET;
+    }
+
+    retval = bzrtp_processMessage(contextAlice, AliceSSRC, contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->packetString, (contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t));
+
+    if (retval)
+    {
+        printf("Erreur d'envoi du Hello de Bob : %d\n", retval);
+        return ERROR_PROCESS_MESSAGE;
+    }
+
+    Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
+
+    for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+    {
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = Alice->sendQueue[Alice->previousSendQueueIndex].packetString[i];
+    }
+
+    Alice->previousSendQueueIndex++;
+    Alice->sendQueueIndex--;
+    Bob->receiveQueueIndex++;
+
+    retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+    Bob->previousReceiveQueueIndex++;
+
+    if (retval)
+    {
+        printf("Erreur d'envoi du HelloAck d'Alice : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
@@ -119,10 +182,12 @@ int main(int args, char *argv[])
     printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
     printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
 
-    printf("Indice de queue d'envoi d'Alice' : %d\n", Alice->sendQueueIndex);
-    printf("Indice de queue d'envoi précédent d'Alice' : %d\n", Alice->previousSendQueueIndex);
-    printf("Indice de queue de réception d'Alice' : %d\n", Alice->receiveQueueIndex);
-    printf("Indice de queue de réception précédent d'Alice' : %d\n", Alice->previousReceiveQueueIndex);
+    printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
+    printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
+    printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
+    printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+
+    free(cbs);
 
     destroyClient(Alice);
     destroyClient(Bob);

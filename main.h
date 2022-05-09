@@ -10,6 +10,7 @@
 #define ERROR_PROCESS_MESSAGE 0x05
 #define ERROR_INIT_CALLBACKS 0x06
 #define ERROR_INIT_CLIENTDATA 0x07
+#define ERROR_UPDATE_PACKET 0x08
 
 int sendData(void * clientData, const uint8_t * packetString, uint16_t packetLength);
 
