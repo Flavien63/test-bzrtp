@@ -14,6 +14,8 @@
 
 int sendData(void * clientData, const uint8_t * packetString, uint16_t packetLength);
 
+int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainChannel);
+
 int main(int args, char *argv[]);
 
 #endif

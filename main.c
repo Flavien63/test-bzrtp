@@ -16,6 +16,56 @@ int sendData(void * clientData, const uint8_t * packetString, uint16_t packetLen
     return 0;
 }
 
+int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainChannel) 
+{
+	if (mainChannel==TRUE) {
+		if (strcmp(a->sas,b->sas)!=0) {
+			return -1;
+		}
+	}
+
+	if (mainChannel == TRUE) {
+		if ((a->authTagAlgo!=b->authTagAlgo)
+		  || a->hashAlgo!=b->hashAlgo
+		  || a->keyAgreementAlgo!=b->keyAgreementAlgo
+		  || a->sasAlgo!=b->sasAlgo
+		  || a->cipherAlgo!=b->cipherAlgo) {
+			return -2;
+		}
+	} else {
+		if ((a->authTagAlgo!=b->authTagAlgo)
+		  || a->hashAlgo!=b->hashAlgo
+		  || a->keyAgreementAlgo!=b->keyAgreementAlgo
+		  || a->cipherAlgo!=b->cipherAlgo) {
+			return -2;
+		}
+	}
+
+
+	if (a->selfSrtpKeyLength==0 || b->selfSrtpKeyLength==0
+	 || a->selfSrtpSaltLength==0 || b->selfSrtpSaltLength==0
+	 || a->peerSrtpKeyLength==0 || b->peerSrtpKeyLength==0
+	 || a->peerSrtpSaltLength==0 || b->peerSrtpSaltLength==0) {
+		return -3;
+	}
+
+	if (a->selfSrtpKeyLength != b->peerSrtpKeyLength
+	 || a->selfSrtpSaltLength != b->peerSrtpSaltLength
+	 || a->peerSrtpKeyLength != b->selfSrtpKeyLength
+	 || a->peerSrtpSaltLength != b->selfSrtpSaltLength) {
+		return -4;
+	}
+
+	if (memcmp (a->selfSrtpKey, b->peerSrtpKey, b->peerSrtpKeyLength) != 0
+	 || memcmp (a->selfSrtpSalt, b->peerSrtpSalt, b->peerSrtpSaltLength) != 0
+	 || memcmp (a->peerSrtpKey, b->selfSrtpKey, b->selfSrtpKeyLength) != 0
+	 || memcmp (a->peerSrtpSalt, b->selfSrtpSalt, b->selfSrtpSaltLength) != 0) {
+		return -5;
+	}
+
+	return 0;
+}
+
 int main(int args, char *argv[])
 {
     bzrtpContext_t * contextAlice = bzrtp_createBzrtpContext();
@@ -175,7 +225,6 @@ int main(int args, char *argv[])
     }
 
     Alice->previousSendQueueIndex++;
-    //Alice->sendQueueIndex++;
     Alice->previousSendQueueIndex++;
     Bob->receiveQueueIndex++;
 
@@ -288,15 +337,64 @@ int main(int args, char *argv[])
             return ERROR_PROCESS_MESSAGE;
         }
 
-        printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
-        printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
-        printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
+        retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
-        printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
-        printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
-        printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+        if (retval)
+        {
+            printf("Erreur dans la mise à jour du Confirm 2 de Bob : %d\n", retval);
+            return ERROR_UPDATE_PACKET;
+        }
+
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
+
+        for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
+        {
+            Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID]->packetString[i];
+        }
+
+        Alice->receiveQueueIndex++;
+        Bob->previousSendQueueIndex++;
+
+        retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
+
+        Alice->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans l'envoi du Confirm 2 de Bob : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
+
+        for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+        {
+            Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = Alice->sendQueue[Alice->previousSendQueueIndex].packetString[i];
+        }
+
+        Bob->receiveQueueIndex++;
+        Alice->previousSendQueueIndex++;
+
+        retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+        Bob->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans l'envoi du ConfirmAck2 d'Alice : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        printf("SRTP sessions begin\n");
+
+        retval = compareSecrets(&contextAlice->channelContext[AliceSSRC]->srtpSecrets, &contextBob->channelContext[BobSSRC]->srtpSecrets, TRUE);
+
+        if (retval == 0)
+        {
+            printf("The SRTP secrets are the same\n");
+        }
+        else
+            printf("Erreur dans : %d\n", retval);
     }
     else
     {
@@ -324,15 +422,7 @@ int main(int args, char *argv[])
             return ERROR_PROCESS_MESSAGE;
         }
 
-        printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
-        printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
-        printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
-
-        printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
-        printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
-        printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+        
     }
 
     free(cbs);
