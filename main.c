@@ -175,7 +175,8 @@ int main(int args, char *argv[])
     }
 
     Alice->previousSendQueueIndex++;
-    Alice->sendQueueIndex--;
+    //Alice->sendQueueIndex++;
+    Alice->previousSendQueueIndex++;
     Bob->receiveQueueIndex++;
 
     retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
@@ -197,15 +198,142 @@ int main(int args, char *argv[])
         return ERROR_UPDATE_PACKET;
     }
 
-    printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
-    printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
-    printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
-    printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
+    Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[COMMIT_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
-    printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
-    printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
-    printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
-    printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+    for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
+    {
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = contextBob->channelContext[BobSSRC]->selfPackets[COMMIT_MESSAGE_STORE_ID]->packetString[i];
+    }
+
+    Alice->receiveQueueIndex++;
+
+    retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
+
+    Alice->previousReceiveQueueIndex++;
+
+    if (retval)
+    {
+        printf("Erreur dans l'envoi du Commit d'Alice : %d\n", retval);
+        return ERROR_PROCESS_MESSAGE;
+    }
+
+    if (Alice->sendQueue[Alice->previousSendQueueIndex].packetLength)
+    {
+        printf("Alice is Responder and bob is Initiator\n");
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
+
+        for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+        {
+            Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = Alice->sendQueue[Alice->previousSendQueueIndex].packetString[i];
+        }
+
+        Alice->previousSendQueueIndex++;
+        Bob->receiveQueueIndex++;
+
+        retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+        Bob->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans l'envoi du DHPART1 d'Alice : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
+
+        if (retval)
+        {
+            printf("Erreur dans la mise à jour de DHPART2 de Bob : %d\n", retval);
+            return ERROR_UPDATE_PACKET;
+        }
+
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
+
+        for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
+        {
+            Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID]->packetString[i];
+        }
+
+        Alice->receiveQueueIndex++;
+        Bob->previousSendQueueIndex++;
+
+        retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
+
+        Alice->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans l'envoi de DHPART2 de Bob : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
+
+        for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+        {
+            Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = Alice->sendQueue[Alice->previousSendQueueIndex].packetString[i];
+        }
+
+        Alice->previousSendQueueIndex++;
+        Bob->receiveQueueIndex++;
+
+        retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+        Bob->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans l'envoi du Confirm 1 d'Alice : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
+        printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
+        printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
+        printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
+
+        printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
+        printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
+        printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
+        printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+    }
+    else
+    {
+        printf("Bob is responder and Alice is Initiator\n");
+
+        Alice->previousSendQueueIndex--;
+
+        Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
+
+        for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
+        {
+            Bob->receiveQueue[Bob->receiveQueueIndex].packetString[i] = Alice->sendQueue[Alice->previousSendQueueIndex].packetString[i];
+        }
+
+        Alice->previousSendQueueIndex++;
+        Bob->receiveQueueIndex++;
+
+        retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
+
+        Bob->previousReceiveQueueIndex++;
+
+        if (retval)
+        {
+            printf("Erreur dans le traitement du changement de rôle de Bob : %d\n", retval);
+            return ERROR_PROCESS_MESSAGE;
+        }
+
+        printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
+        printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
+        printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
+        printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
+
+        printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
+        printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
+        printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
+        printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
+    }
 
     free(cbs);
 
