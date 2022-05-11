@@ -1,29 +1,55 @@
 #include "main.h"
 
+/*
+ * @brief Put data in a queue to send to peer
+ *
+ * @param[in] clientData The client context with the queue
+ * @param[in] packetString The packet string of what we want to send
+ * @param[in] packetLength The length of the packet string
+ * 
+ * @return Return 0 if success
+ */
+
 int sendData(void * clientData, const uint8_t * packetString, uint16_t packetLength)
 {
+    /* Get the client context from clientData */
     clientContext_t *clientContext = (clientContext_t *) clientData;
 
+    /* Get the length of the packet for copying the packetString */
     clientContext->sendQueue[clientContext->sendQueueIndex].packetLength = packetLength;
 
+    /* Get the packetSring into the queue int by int */
     for (int i = 0; i < packetLength; i++)
     {
         clientContext->sendQueue[clientContext->sendQueueIndex].packetString[i] = packetString[i];
     }
 
+    /* We increment the index to know that we have a new packet */
     clientContext->sendQueueIndex++;
 
     return 0;
 }
 
+/*
+ * @brief Compare secrets of the two clients a and b
+ *
+ * @param[in] a The client a
+ * @param[in] b The client b
+ * @param[in] mainChannel Indicate if the uses channel are the main or not
+ * 
+ * @return Return 0 if success and some negative numbers else
+ */
+
 int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainChannel) 
 {
+    /* Test about the SAS */
 	if (mainChannel==TRUE) {
 		if (strcmp(a->sas,b->sas)!=0) {
 			return -1;
 		}
 	}
 
+    /* Tests about the diffrent algorithm we use */
 	if (mainChannel == TRUE) {
 		if ((a->authTagAlgo!=b->authTagAlgo)
 		  || a->hashAlgo!=b->hashAlgo
@@ -41,7 +67,7 @@ int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainCha
 		}
 	}
 
-
+    /* Tests about the different salt and their lengths */
 	if (a->selfSrtpKeyLength==0 || b->selfSrtpKeyLength==0
 	 || a->selfSrtpSaltLength==0 || b->selfSrtpSaltLength==0
 	 || a->peerSrtpKeyLength==0 || b->peerSrtpKeyLength==0
@@ -49,6 +75,7 @@ int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainCha
 		return -3;
 	}
 
+    /* Tests about the different salt and their contents */
 	if (a->selfSrtpKeyLength != b->peerSrtpKeyLength
 	 || a->selfSrtpSaltLength != b->peerSrtpSaltLength
 	 || a->peerSrtpKeyLength != b->selfSrtpKeyLength
@@ -56,6 +83,7 @@ int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainCha
 		return -4;
 	}
 
+    /* Tests about the salt and their contents in memory */
 	if (memcmp (a->selfSrtpKey, b->peerSrtpKey, b->peerSrtpKeyLength) != 0
 	 || memcmp (a->selfSrtpSalt, b->peerSrtpSalt, b->peerSrtpSaltLength) != 0
 	 || memcmp (a->peerSrtpKey, b->selfSrtpKey, b->selfSrtpKeyLength) != 0
@@ -66,16 +94,25 @@ int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainCha
 	return 0;
 }
 
+/*
+ * @brief Main fonction thanks we use the BZRTP protocol
+ * 
+ * @return return 0 if success
+ */
 int main(int args, char *argv[])
 {
+    /* Creation of the context of which client, there is two clients, Alice and Bob */
     bzrtpContext_t * contextAlice = bzrtp_createBzrtpContext();
     bzrtpContext_t * contextBob = bzrtp_createBzrtpContext();
 
+    /* The value that we use for debug and we return at the end */
     int retval;
 
+    /* The channel in which we want to communciate, here we are doing this to the channel zero */
     int AliceSSRC = 0;
     int BobSSRC = 0;
 
+    /* The algorithm that Alice can use with BZRTP */
     int authTagLengthAlice = 4;
     int cipherLengthAlice = 6;
     int hashLengthAlice = 4;
@@ -88,6 +125,7 @@ int main(int args, char *argv[])
     int keyAgreementAlice[7] = {65, 66, 67, 68, 69, 70, 71};
     int sasAlice[7] = {81, 82, 0, 0, 0, 0, 0};
 
+    /* The algorithm that Bob can use with BZRTP */
     int authTagLengthBob = 4;
     int cipherLengthBob = 6;
     int hashLengthBob = 4;
@@ -100,19 +138,22 @@ int main(int args, char *argv[])
     int keyAgreementBob[7] = {65, 66, 67, 68, 69, 70, 71};
     int sasBob[7] = {81, 82, 0, 0, 0, 0, 0};
 
+    /* We are searching if the context creation was good or not */
     if (!contextAlice || !contextBob)
     {
-        printf("Erreur de création des contextes\n");
+        printf("Mistake about the bzrtp_createBzrtpContext\n");
         return ERROR_CREATE_CONTEXT;
     }
 
+    /* We are searching if the context init was good or not and we are doing the init by the same time */
     if (bzrtp_initBzrtpContext(contextAlice, AliceSSRC) || bzrtp_initBzrtpContext(contextBob, BobSSRC))
     {
-        printf("Erreur d'initialisation des contextes\n");
+        printf("Mistake about the bzrtp_initBzrtpContext\n");
         return ERROR_INIT_CONTEXT;
     }
 
-     bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
+    /* Creation of the callbacks that we will use for the both clients */
+    bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
 
     cbs->bzrtp_sendData = sendData;
     cbs->bzrtp_contextReadyForExportedKeys = NULL;
@@ -122,35 +163,42 @@ int main(int args, char *argv[])
     
     retval = bzrtp_setCallbacks(contextAlice, cbs) || bzrtp_setCallbacks(contextBob, cbs);
 
+    /* We are searching if the callbacks attribution was good or not */
     if (retval)
     {
-        printf("Erreur d'initialisation des Callbacks : %d\n", retval);
+        printf("Mistake about the callbacks init : %d\n", retval);
         return ERROR_INIT_CALLBACKS;
     }
 
+    /* Init the client context of Alice and Bob */
     clientContext_t * Alice = initClient(authTagAlice, authTagLengthAlice, cipherAlice, cipherLengthAlice, hashAlice, hashLengthAlice, keyAgreementAlice, keyAgreementLengthAlice, sasAlice, sasLengthAlice);
     clientContext_t * Bob = initClient(authTagBob, authTagLengthBob, cipherBob, cipherLengthBob, hashBob, hashLengthBob, keyAgreementBob, keyAgreementLengthBob, sasBob, sasLengthBob);
 
+    /* We are searching if the client context init was good or not */
     if (!Alice || !Bob)
     {
-        printf("Erreur d'initialisation des clients\n");
+        printf("Mistake about the client context init\n");
         return ERROR_INIT_CLIENT;
     }
 
+    /* Now we are setting the clientData by the client context */
     retval = bzrtp_setClientData(contextAlice, AliceSSRC, Alice) || bzrtp_setClientData(contextBob, BobSSRC, Bob);
-
+    
+    /* We are searching if the set was good or not */
     if (retval)
     {
-        printf("Erreur d'initialisation de clientData : %d\n", retval);
+        printf("Mistake about the clientData init : %d\n", retval);
         return ERROR_INIT_CLIENTDATA;
     }
 
+    /* We start the channel were we want to exchange and by the same time we are searching if it was good or not */
     if (bzrtp_startChannelEngine(contextAlice, AliceSSRC) || bzrtp_startChannelEngine(contextBob, BobSSRC))
     {
-        printf("Erreur de démarrage des channels\n");
+        printf("Mistake about the channel start\n");
         return ERROR_START_CHANNEL;
     }
 
+    /* Put the hello message of Alice in the receive Queue of Bob, we know now that he has to treat this packet to begin the ZRTP protocol */
     Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = (ZRTP_PACKET_HEADER_LENGTH + contextAlice->channelContext[AliceSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
     for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -160,16 +208,19 @@ int main(int args, char *argv[])
 
     Bob->receiveQueueIndex++;
 
+    /* Bob is now processing the message that he receive from Alice */
     retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
     Bob->previousReceiveQueueIndex++;
 
+    /* We are searching if the Hello Message war good or not */
     if (retval)
     {
-        printf("Erreur d'envoi du Hello d'Alice : %d\n", retval);
+        printf("Mistake about the sending of Alice's Hello message : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
+    /* Put the HelloAck message of Bob in the receive queue of Alice */
     Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = Bob->sendQueue[Bob->previousSendQueueIndex].packetLength;
 
     for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -180,24 +231,29 @@ int main(int args, char *argv[])
     Bob->previousSendQueueIndex++;
     Alice->receiveQueueIndex++;
 
+    /* Alice is now processing the Ack that she receive from Bob and now wait for the Hello message of Bob */
     retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
     Alice->previousReceiveQueueIndex++;
 
+    /* We are searching if the HelloAck was correctly send and treat */
     if (retval)
     {
-        printf("Erreur dans l'envoi du HelloAck de Bob : %d\n", retval);
+        printf("Mistake about the sending of Bob's HelloAck message : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
+    /* We are updating the Hello Packet of Bob because it was created too early and is know a bit late */
     retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+    /* We are searching if the update was good or not */
     if (retval)
     {
-        printf("Erreur de mise à jour du paquet Hello de Bob : %d\n", retval);
+        printf("Mistake about the updating of Bob's Hello message : %d\n", retval);
         return ERROR_UPDATE_PACKET;
     }
 
+    /* Put the Hello message of Bob in the queue of Alice */
     Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[HELLO_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
     
     for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -207,16 +263,19 @@ int main(int args, char *argv[])
 
     Alice->receiveQueueIndex++;
 
+    /* Alice is now processing the Hello message */
     retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
     Alice->previousReceiveQueueIndex++;
 
+    /* We are searching if the treatment of the Hello was good or not */
     if (retval)
     {
-        printf("Erreur d'envoi du Hello de Bob : %d\n", retval);
+        printf("Mistake about the sending of Bob's Hello message : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
+    /*  */
     Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
     for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -518,11 +577,26 @@ int main(int args, char *argv[])
             return ERROR_PROCESS_MESSAGE;
         }
 
-        Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = Bob->sendQueue[Bob->previousSendQueueIndex].packetLength;
+        bzrtpPacket_t * conf2AckPacket = bzrtp_createZrtpPacket(contextBob, contextBob->channelContext[BobSSRC], MSGTYPE_CONF2ACK, &retval);
+
+        if (retval)
+        {
+            printf("Erreur dans la création du Conf2Ack de Bob : %d\n", retval);
+            return retval;
+        }
+
+        retval = bzrtp_packetBuild(contextBob, contextBob->channelContext[BobSSRC], conf2AckPacket, contextBob->channelContext[BobSSRC]->selfSequenceNumber);
+
+        if (retval)
+        {
+            printf("Erreur dans la construction du Conf2Ack de Bob : %d\n", retval);
+        }
+
+        Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (conf2AckPacket->messageLength + ZRTP_PACKET_OVERHEAD) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
         {
-            Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = Bob->sendQueue[Bob->previousSendQueueIndex].packetString[i];
+            Alice->receiveQueue[Alice->receiveQueueIndex].packetString[i] = conf2AckPacket->packetString[i];
         }
 
         Alice->receiveQueueIndex++;
@@ -548,16 +622,6 @@ int main(int args, char *argv[])
         }
         else
             printf("Erreur dans : %d\n", retval);
-
-        printf("Indice de queue d'envoi de Bob : %d\n", Bob->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent de Bob : %d\n", Bob->previousSendQueueIndex);
-        printf("Indice de queue de réception de Bob : %d\n", Bob->receiveQueueIndex);
-        printf("Indice de queue de réception précédent de Bob : %d\n", Bob->previousReceiveQueueIndex);
-
-        printf("Indice de queue d'envoi d'Alice : %d\n", Alice->sendQueueIndex);
-        printf("Indice de queue d'envoi précédent d'Alice : %d\n", Alice->previousSendQueueIndex);
-        printf("Indice de queue de réception d'Alice : %d\n", Alice->receiveQueueIndex);
-        printf("Indice de queue de réception précédent d'Alice : %d\n", Alice->previousReceiveQueueIndex);
     }
 
     free(cbs);
