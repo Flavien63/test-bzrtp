@@ -249,7 +249,7 @@ int main(int args, char *argv[])
     /* We are searching if the update was good or not */
     if (retval)
     {
-        printf("Mistake about the updating of Bob's Hello message : %d\n", retval);
+        printf("Mistake about the update of Bob's Hello message : %d\n", retval);
         return ERROR_UPDATE_PACKET;
     }
 
@@ -275,7 +275,7 @@ int main(int args, char *argv[])
         return ERROR_PROCESS_MESSAGE;
     }
 
-    /*  */
+    /* Put the HelloAck and the Alice's Commit in the Bob's queue */
     Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
     for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -287,25 +287,30 @@ int main(int args, char *argv[])
     Alice->previousSendQueueIndex++;
     Bob->receiveQueueIndex++;
 
+    /* Bob is now processing the HelloAck message */
     retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
     Bob->previousReceiveQueueIndex++;
     Bob->sendQueueIndex--;
 
+    /* We are searching if the treatment of the HelloAck was good or not */
     if (retval)
     {
-        printf("Erreur d'envoi du HelloAck d'Alice : %d\n", retval);
+        printf("Mistake about the sending of Alice's HelloAck message : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
+    /* Update the Commit packet of Bob */
     retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[COMMIT_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+    /* We are searching if the update was good or not */
     if (retval)
     {
-        printf("Erreur de mise à jour du paquet Commit de Bob : %d\n", retval);
+        printf("Mistake about the update of Bob's Commit message : %d\n", retval);
         return ERROR_UPDATE_PACKET;
     }
 
+    /* Put the Commit packet of Bob in the queue of Alice */
     Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[COMMIT_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
     for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -315,19 +320,24 @@ int main(int args, char *argv[])
 
     Alice->receiveQueueIndex++;
 
+    /* Alice is processing the Commit Message */
     retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
     Alice->previousReceiveQueueIndex++;
 
+    /* We are searching if the sending was good or not */
     if (retval)
     {
-        printf("Erreur dans l'envoi du Commit d'Alice : %d\n", retval);
+        printf("Mistake about the sending of Bob's Commit : %d\n", retval);
         return ERROR_PROCESS_MESSAGE;
     }
 
+    /* We are searching if Alice is the responder or not, it depends on the HVI */
     if (Alice->sendQueue[Alice->previousSendQueueIndex].packetLength)
     {
         printf("Alice is Responder and bob is Initiator\n");
+
+        /* Put the Alice's DHPart1 packet in the Bob's queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -338,16 +348,19 @@ int main(int args, char *argv[])
         Alice->previousSendQueueIndex++;
         Bob->receiveQueueIndex++;
 
+        /* Bob is now processing the DHPart1 message of Alice */
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* We are searching if the sending of Alice's DHPart 1 was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du DHPART1 d'Alice : %d\n", retval);
+            printf("Mistake about the sending of Alice's DHPart 1 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Update the Bob's DHPart 2 */
         retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
         if (retval)
@@ -356,6 +369,7 @@ int main(int args, char *argv[])
             return ERROR_UPDATE_PACKET;
         }
 
+        /* Put the DHPart 2 of Bob in the Alice's queue */
         Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -366,16 +380,19 @@ int main(int args, char *argv[])
         Alice->receiveQueueIndex++;
         Bob->previousSendQueueIndex++;
 
+        /* Alice is now processing the Bob's DHPart 2 */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
         Alice->previousReceiveQueueIndex++;
 
+        /* Checking if the sending was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi de DHPART2 de Bob : %d\n", retval);
+            printf("Mistake about the sending of Bob's DHPart 2 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Put the Confirm 1 of Alice in the Bob's queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -386,24 +403,29 @@ int main(int args, char *argv[])
         Alice->previousSendQueueIndex++;
         Bob->receiveQueueIndex++;
 
+        /* Bob is now processing the Confirm 1 message of Alice */  
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Alice's Confirm 1 is good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du Confirm 1 d'Alice : %d\n", retval);
+            printf("Mistake about the sending of Alice's Confirm 1 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Update the Confirm 2 of Bob */
         retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+        /* Checking if the update was good or not */
         if (retval)
         {
-            printf("Erreur dans la mise à jour du Confirm 2 de Bob : %d\n", retval);
+            printf("Mistake about update of Bob's Confirm 2 : %d\n", retval);
             return ERROR_UPDATE_PACKET;
         }
 
+        /* Put the Bob's Confirm 1 in the Alice's queue */
         Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -414,16 +436,19 @@ int main(int args, char *argv[])
         Alice->receiveQueueIndex++;
         Bob->previousSendQueueIndex++;
 
+        /* Alice is now processing the Confirm of Bob */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
         Alice->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Bob's Confirm 2 is good or not */ 
         if (retval)
         {
-            printf("Erreur dans l'envoi du Confirm 2 de Bob : %d\n", retval);
+            printf("Mistake about the sending of Bob's Confirm 2 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Put the Alice's Conf2Ack in the Bob's queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -434,18 +459,21 @@ int main(int args, char *argv[])
         Bob->receiveQueueIndex++;
         Alice->previousSendQueueIndex++;
 
+        /* Bob is now processing the Conf2Ack of Alice */
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Alice's Conf2Ack is good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du ConfirmAck2 d'Alice : %d\n", retval);
+            printf("Mistake about the sending of Alice's Conf2Ack : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
         printf("SRTP sessions begin\n");
 
+        /* Checking if the secrets are the same */
         retval = compareSecrets(&contextAlice->channelContext[AliceSSRC]->srtpSecrets, &contextBob->channelContext[BobSSRC]->srtpSecrets, TRUE);
 
         if (retval == 0)
@@ -461,6 +489,7 @@ int main(int args, char *argv[])
 
         Alice->previousSendQueueIndex--;
 
+        /* Put the Alice's Commit in the queue of Bob */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -471,24 +500,29 @@ int main(int args, char *argv[])
         Alice->previousSendQueueIndex++;
         Bob->receiveQueueIndex++;
 
+        /* Bob is now processing the Alice's Commit message and turn into responder */
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Alice's Commit was good or not */
         if (retval)
         {
-            printf("Erreur dans le traitement du changement de rôle de Bob : %d\n", retval);
+            printf("Mistake about the sending of Alice's Commit : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Update the DHPart 1 of Bob */
         retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+        /* Checking if the update was good or not */
         if (retval)
         {
-            printf("Erreur dans la mise à jour du DHPART1 de Bob : %d\n", retval);
+            printf("Mistake about the update of DHPart 1 of Bob : %d\n", retval);
             return ERROR_UPDATE_PACKET;
         }
 
+        /* Put the DHPart 1 of Bob in the Alice queue */
         Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[DHPART_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -499,16 +533,19 @@ int main(int args, char *argv[])
         Bob->previousSendQueueIndex++;
         Alice->receiveQueueIndex++;
 
+        /* Alice is now processing the Bob's DHPart 1 message */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
         Alice->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Bob's DHPart 1 was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du DHPART1 de Bob : %d\n", retval);
+            printf("Mistake about the DHPart 1's sending of Bob : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Put the DHPart 2 of Alice int the Bob queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -519,24 +556,30 @@ int main(int args, char *argv[])
         Bob->receiveQueueIndex++;
         Alice->previousSendQueueIndex++;
 
+
+        /* Bob is now processing the Alice's DHPart 2 message */
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Alice's DHPart 2 message was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du DHPART2 d'Alice : %d\n", retval);
+            printf("Mistake about the sending of Alice's DHPart 2 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Update the Confirm 1 packet of Bob */
         retval = bzrtp_packetUpdateSequenceNumber(contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID], contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+        /* Checking if the update was good or not */
         if (retval)
         {
-            printf("Erreur dans la mise a jour du Confirm1 de Bob : %d\n", retval);
+            printf("Mistake about the update of Bob's Confirm 1 : %d\n", retval);
             return ERROR_UPDATE_PACKET;
         }
 
+        /* Put the Confirm 1 of Bob in the Alice queue */
         Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (contextBob->channelContext[BobSSRC]->selfPackets[CONFIRM_MESSAGE_STORE_ID]->messageLength + ZRTP_PACKET_HEADER_LENGTH + ZRTP_PACKET_CRC_LENGTH) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -547,16 +590,19 @@ int main(int args, char *argv[])
         Alice->receiveQueueIndex++;
         Bob->previousSendQueueIndex++;
 
+        /* Alice is now processing the Confirm 1 of Bob */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
         Alice->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Bob's Confirm 1 was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du Confirm1 de Bob : %d\n", retval);
+            printf("Mistake about the sending of Bob's Confirm 1 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Put the Alice's Confirm 2 in the Bob queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
 
         for (int i = 0; i < Bob->receiveQueue[Bob->receiveQueueIndex].packetLength; i++)
@@ -567,31 +613,39 @@ int main(int args, char *argv[])
         Bob->receiveQueueIndex++;
         Alice->previousSendQueueIndex++;
 
+        /* Bob is now processing the Alice's Confirm 2 */
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
         Bob->previousReceiveQueueIndex++;
 
+        /* Checking if the sending of Alice's Confirm 2 was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du Confirm2 d'Alice : %d\n", retval);
+            printf("Mistake about the sending of Alice's Confirm 2 : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
+        /* Recreate the Conf2Ack packet because of a problem of sequence number */
         bzrtpPacket_t * conf2AckPacket = bzrtp_createZrtpPacket(contextBob, contextBob->channelContext[BobSSRC], MSGTYPE_CONF2ACK, &retval);
 
+        /* Checking if the creation was good or not */
         if (retval)
         {
-            printf("Erreur dans la création du Conf2Ack de Bob : %d\n", retval);
+            printf("Mistake about the creation of Conf2Ack packet of Bob : %d\n", retval);
             return retval;
         }
 
+        /* Build of the Conf2Ack packet */
         retval = bzrtp_packetBuild(contextBob, contextBob->channelContext[BobSSRC], conf2AckPacket, contextBob->channelContext[BobSSRC]->selfSequenceNumber);
 
+        /* Checking if the build of the Conf2Ack packet was good or not */
         if (retval)
         {
-            printf("Erreur dans la construction du Conf2Ack de Bob : %d\n", retval);
+            printf("Mistake about the build of the Conf2Ack packet : %d\n", retval);
+            return ERROR_PACKET_BUILD;
         }
 
+        /* Put Conf2Ack packet of Bob's Conf2Ack */
         Alice->receiveQueue[Alice->receiveQueueIndex].packetLength = (conf2AckPacket->messageLength + ZRTP_PACKET_OVERHEAD) * sizeof(uint8_t);
 
         for (int i = 0; i < Alice->receiveQueue[Alice->receiveQueueIndex].packetLength; i++)
@@ -602,10 +656,12 @@ int main(int args, char *argv[])
         Alice->receiveQueueIndex++;
         Bob->previousSendQueueIndex++;
 
+        /* Alice is now processing the Bob's Conf2Ack */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
         Alice->previousReceiveQueueIndex++;
 
+        /* CHecking if the sending of the Bob's Conf2Ack was good or not */
         if (retval)
         {
             printf("Erreur dans l'envoi du Conf2Ack de Bob : %d\n", retval);
@@ -614,6 +670,7 @@ int main(int args, char *argv[])
 
         printf("SRTP sessions begin\n");
 
+        /* Checking if the secrets are the same */
         retval = compareSecrets(&contextAlice->channelContext[AliceSSRC]->srtpSecrets, &contextBob->channelContext[BobSSRC]->srtpSecrets, TRUE);
 
         if (retval == 0)
@@ -622,6 +679,8 @@ int main(int args, char *argv[])
         }
         else
             printf("Erreur dans : %d\n", retval);
+
+        bzrtp_freeZrtpPacket(conf2AckPacket);
     }
 
     free(cbs);
