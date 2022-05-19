@@ -9,8 +9,8 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
         printf("Mistake about the client context's init\n");
     }
 
-    mbedtls_ecdsa_init(&client->ctx_sign);
-    mbedtls_ecdsa_init(&client->ctx_verify);
+    //mbedtls_ecdsa_init(&client->ctx_sign);
+    //mbedtls_ecdsa_init(&client->ctx_verify);
 
     client->authTagLength = authTagLength;
     client->cipherLength = cipherLength;

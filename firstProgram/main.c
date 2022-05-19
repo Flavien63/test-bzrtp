@@ -152,8 +152,6 @@ int main(int args, char *argv[])
         return ERROR_INIT_CONTEXT;
     }
 
-    printf("Est-ce que ça crashe direct ?\n");
-
     /* Creation of the callbacks that we will use for the both clients */
     bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
 
@@ -408,6 +406,8 @@ int main(int args, char *argv[])
         /* Bob is now processing the Confirm 1 message of Alice */  
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
+        printf("sas length : %d\n", contextBob->channelContext[BobSSRC]->srtpSecrets.sasLength);
+
         Bob->previousReceiveQueueIndex++;
 
         /* Checking if the sending of Alice's Confirm 1 is good or not */
@@ -441,6 +441,7 @@ int main(int args, char *argv[])
         /* Alice is now processing the Confirm of Bob */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
+        printf("sas length : %d\n", contextAlice->channelContext[BobSSRC]->srtpSecrets.sasLength);
         Alice->previousReceiveQueueIndex++;
 
         /* Checking if the sending of Bob's Confirm 2 is good or not */ 

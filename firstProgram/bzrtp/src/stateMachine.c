@@ -33,6 +33,7 @@ int bzrtp_responseToHelloMessage(bzrtpContext_t *zrtpContext, bzrtpChannelContex
 int bzrtp_computeS0DHMMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_computeS0MultiStreamMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_deriveKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
+int bzrtp_deriveSASFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_deriveSrtpKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_updateCachedSecrets(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 
@@ -1083,6 +1084,9 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 	if (event.eventType == BZRTP_EVENT_INIT) {
 		bzrtpPacket_t *confirm1Packet;
 
+		/* Compute SAS for signing */
+		retval = bzrtp_deriveSASFromS0(zrtpContext, zrtpChannelContext);
+
 		/* when in multistream mode, we must derive s0 and other keys from ZRTPSess */
 		if (zrtpChannelContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_Mult) {
 			/* we need ZRTPSess */
@@ -1310,6 +1314,8 @@ int state_confirmation_initiatorSendingConfirm2(bzrtpEvent_t event) {
 	/*** Manage the first call to this function ***/
 	if (event.eventType == BZRTP_EVENT_INIT) {
 		bzrtpPacket_t *confirm2Packet;
+
+		retval = bzrtp_deriveSASFromS0(zrtpContext, zrtpChannelContext);
 
 		/* we must build the confirm2 packet, check in the channel context if we have the needed keys */
 		if ((zrtpChannelContext->mackeyi == NULL) || (zrtpChannelContext->zrtpkeyi == NULL)) {
@@ -2103,6 +2109,41 @@ int bzrtp_deriveKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *z
 	return retval;
 }
 
+int bzrtp_deriveSASFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext)
+{
+	int retval = 0;
+
+	/* compute the SAS according to rfc section 4.5.2 sashash = KDF(s0, "SAS", KDF_Context, 256) */
+	if (zrtpChannelContext->keyAgreementAlgo != ZRTP_KEYAGREEMENT_Mult) { /* only when not in Multistream mode */
+		uint8_t sasHash[32]; /* length of hash is 256 bits -> 32 bytes */
+		uint32_t sasValue;
+
+		retval = bzrtp_keyDerivationFunction(zrtpChannelContext->s0, zrtpChannelContext->hashLength,
+				(uint8_t *)"SAS", 3,
+				zrtpChannelContext->KDFContext, zrtpChannelContext->KDFContextLength,
+				32,
+				zrtpChannelContext->hmacFunction,
+				sasHash);
+		if (retval!=0) {
+			return retval;
+		}
+
+		/* now get it into a char according to the selected algo */
+		sasValue = ((uint32_t)sasHash[0]<<24) | ((uint32_t)sasHash[1]<<16) | ((uint32_t)sasHash[2]<<8) | ((uint32_t)(sasHash[3]));
+		zrtpChannelContext->srtpSecrets.sasLength = zrtpChannelContext->sasLength;
+		zrtpChannelContext->srtpSecrets.sas = (char *)malloc((zrtpChannelContext->sasLength)*sizeof(char)); /*this shall take in account the selected representation algo for SAS */
+
+		zrtpChannelContext->sasFunction(sasValue, zrtpChannelContext->srtpSecrets.sas, zrtpChannelContext->sasLength);
+
+		/* set also the cache mismtach flag in srtpSecrets structure, may occurs only on the first channel */
+		if (zrtpContext->cacheMismatchFlag!=0) {
+			zrtpChannelContext->srtpSecrets.cacheMismatch = 1;
+		}
+	}
+
+	return 0;
+}
+
 /**
  * @brief This function is called after confirm1 is received by initiator or confirm2 by responder
  * Keys computed are: srtp self and peer keys and salt, SAS(if mode is not multistream).
@@ -2171,32 +2212,32 @@ int bzrtp_deriveSrtpKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_
 
 
 	/* compute the SAS according to rfc section 4.5.2 sashash = KDF(s0, "SAS", KDF_Context, 256) */
-	if (zrtpChannelContext->keyAgreementAlgo != ZRTP_KEYAGREEMENT_Mult) { /* only when not in Multistream mode */
-		uint8_t sasHash[32]; /* length of hash is 256 bits -> 32 bytes */
-		uint32_t sasValue;
+	//if (zrtpChannelContext->keyAgreementAlgo != ZRTP_KEYAGREEMENT_Mult) { /* only when not in Multistream mode */
+		//uint8_t sasHash[32]; /* length of hash is 256 bits -> 32 bytes */
+		//uint32_t sasValue;
 
-		retval = bzrtp_keyDerivationFunction(zrtpChannelContext->s0, zrtpChannelContext->hashLength,
-				(uint8_t *)"SAS", 3,
-				zrtpChannelContext->KDFContext, zrtpChannelContext->KDFContextLength,
-				32,
-				zrtpChannelContext->hmacFunction,
-				sasHash);
-		if (retval!=0) {
-			return retval;
-		}
+		//retval = bzrtp_keyDerivationFunction(zrtpChannelContext->s0, zrtpChannelContext->hashLength,
+				//(uint8_t *)"SAS", 3,
+				//zrtpChannelContext->KDFContext, zrtpChannelContext->KDFContextLength,
+				//32,
+				//zrtpChannelContext->hmacFunction,
+				//sasHash);
+		//if (retval!=0) {
+			//return retval;
+		//}
 
 		/* now get it into a char according to the selected algo */
-		sasValue = ((uint32_t)sasHash[0]<<24) | ((uint32_t)sasHash[1]<<16) | ((uint32_t)sasHash[2]<<8) | ((uint32_t)(sasHash[3]));
+		/*sasValue = ((uint32_t)sasHash[0]<<24) | ((uint32_t)sasHash[1]<<16) | ((uint32_t)sasHash[2]<<8) | ((uint32_t)(sasHash[3]));
 		zrtpChannelContext->srtpSecrets.sasLength = zrtpChannelContext->sasLength;
-		zrtpChannelContext->srtpSecrets.sas = (char *)malloc((zrtpChannelContext->sasLength)*sizeof(char)); /*this shall take in account the selected representation algo for SAS */
+		zrtpChannelContext->srtpSecrets.sas = (char *)malloc((zrtpChannelContext->sasLength)*sizeof(char));*/ /*this shall take in account the selected representation algo for SAS */
 
-		zrtpChannelContext->sasFunction(sasValue, zrtpChannelContext->srtpSecrets.sas, zrtpChannelContext->sasLength);
+		//zrtpChannelContext->sasFunction(sasValue, zrtpChannelContext->srtpSecrets.sas, zrtpChannelContext->sasLength);
 
 		/* set also the cache mismtach flag in srtpSecrets structure, may occurs only on the first channel */
-		if (zrtpContext->cacheMismatchFlag!=0) {
+		/*if (zrtpContext->cacheMismatchFlag!=0) {
 			zrtpChannelContext->srtpSecrets.cacheMismatch = 1;
 		}
-	}
+	}*/
 
 	return 0;
 }
