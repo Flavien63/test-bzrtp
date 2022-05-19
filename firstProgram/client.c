@@ -6,8 +6,11 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
     if (!client)
     {
-        printf("Erreur d'initialisation du context client\n");
+        printf("Mistake about the client context's init\n");
     }
+
+    mbedtls_ecdsa_init(&client->ctx_sign);
+    mbedtls_ecdsa_init(&client->ctx_verify);
 
     client->authTagLength = authTagLength;
     client->cipherLength = cipherLength;
@@ -23,7 +26,7 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
     if (!client->supportedAuthTag || !client->supportedCipher || !client->supportedHash || !client->supportedKeyAgreement || !client->supportedSas)
     {
-        printf("Erreur de malloc des algorithmes supportés\n");
+        printf("Mistake about the supported algorithms malloc\n");
     }
 
     for (int i = 0; i < authTagLength; i++)

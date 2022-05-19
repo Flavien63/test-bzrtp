@@ -152,6 +152,8 @@ int main(int args, char *argv[])
         return ERROR_INIT_CONTEXT;
     }
 
+    printf("Est-ce que ça crashe direct ?\n");
+
     /* Creation of the callbacks that we will use for the both clients */
     bzrtpCallbacks_t * cbs = (bzrtpCallbacks_t *)malloc(sizeof(bzrtpCallbacks_t));
 

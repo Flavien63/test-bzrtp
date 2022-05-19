@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "cstdlib": "c",
+        "entropy.h": "c",
+        "ctr_drbg.h": "c"
+    }
+}

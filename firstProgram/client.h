@@ -10,6 +10,12 @@
 #include "bzrtp/include/stateMachine.h"
 #include "bzrtp/include/typedef.h"
 #include "bzrtp/include/zidCache.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/ecdsa.h"
+#include "mbedtls/sha256.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/sha512.h"
+#include <string.h>
 
 #define MAX_PACKET_LENGTH 1000
 
@@ -42,6 +48,8 @@ typedef struct clientContext_struct
     packetDatas_t receiveQueue[MAX_QUEUE_LENGTH];
     uint8_t previousReceiveQueueIndex;
     uint8_t receiveQueueIndex;
+    mbedtls_ecdsa_context ctx_sign;
+    mbedtls_ecdsa_context ctx_verify;
 } clientContext_t;
 
 clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * supportedCipher, int cipherLength, int * supportedHash, int hashLength, int * supportedKeyAgreement, int keyAgreementLength, int * supportedSas, int sasLength);
