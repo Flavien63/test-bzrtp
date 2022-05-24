@@ -170,6 +170,14 @@ int main(int args, char *argv[])
         return ERROR_INIT_CALLBACKS;
     }
 
+    // mbedtls_ctr_drbg_context ctr_drbg;
+
+    // mbedtls_ctr_drbg_init(&ctr_drbg);
+
+    /*mbedtls_entropy_context entropy;
+
+    mbedtls_entropy_init(&entropy);*/
+
     /* Init the client context of Alice and Bob */
     clientContext_t * Alice = initClient(authTagAlice, authTagLengthAlice, cipherAlice, cipherLengthAlice, hashAlice, hashLengthAlice, keyAgreementAlice, keyAgreementLengthAlice, sasAlice, sasLengthAlice);
     clientContext_t * Bob = initClient(authTagBob, authTagLengthBob, cipherBob, cipherLengthBob, hashBob, hashLengthBob, keyAgreementBob, keyAgreementLengthBob, sasBob, sasLengthBob);
@@ -406,8 +414,6 @@ int main(int args, char *argv[])
         /* Bob is now processing the Confirm 1 message of Alice */  
         retval = bzrtp_processMessage(contextBob, BobSSRC, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetString, Bob->receiveQueue[Bob->previousReceiveQueueIndex].packetLength);
 
-        printf("sas length : %d\n", contextBob->channelContext[BobSSRC]->srtpSecrets.sasLength);
-
         Bob->previousReceiveQueueIndex++;
 
         /* Checking if the sending of Alice's Confirm 1 is good or not */
@@ -441,7 +447,6 @@ int main(int args, char *argv[])
         /* Alice is now processing the Confirm of Bob */
         retval = bzrtp_processMessage(contextAlice, AliceSSRC, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetString, Alice->receiveQueue[Alice->previousReceiveQueueIndex].packetLength);
 
-        printf("sas length : %d\n", contextAlice->channelContext[BobSSRC]->srtpSecrets.sasLength);
         Alice->previousReceiveQueueIndex++;
 
         /* Checking if the sending of Bob's Confirm 2 is good or not */ 
@@ -685,6 +690,8 @@ int main(int args, char *argv[])
 
         bzrtp_freeZrtpPacket(conf2AckPacket);
     }
+
+    //mbedtls_ctr_drbg_free(&ctr_drbg);
 
     free(cbs);
 

@@ -21,6 +21,11 @@
 
 #include <stdint.h>
 #include "bzrtp/bzrtp.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/ecdsa.h"
+#include "mbedtls/sha256.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/sha512.h"
 
 /* header of ZRTP packet is 12 bytes : Preambule/Sequence Number + ZRTP Magic Cookie +  SSRC */
 #define ZRTP_PACKET_HEADER_LENGTH	12
@@ -67,6 +72,40 @@
 #define		MSGTYPE_RELAYACK	0x15
 #define		MSGTYPE_PING		0x16
 #define		MSGTYPE_PINGACK		0x17
+
+#define MAX_PACKET_LENGTH 1000
+#define ECPARAMS MBEDTLS_ECP_DP_SECP192R1
+#define MAX_QUEUE_LENGTH 10
+
+typedef struct packetDatas_struct {
+	uint8_t packetString[MAX_PACKET_LENGTH];
+	uint16_t packetLength;
+} packetDatas_t;
+
+typedef struct clientContext_struct
+{
+    bzrtpContext_t * context;
+    uint8_t *supportedHash;
+    uint8_t hashLength;
+    uint8_t *supportedCipher;
+    uint8_t cipherLength;
+    uint8_t *supportedAuthTag;
+    uint8_t authTagLength;
+    uint8_t *supportedKeyAgreement;
+    uint8_t keyAgreementLength;
+    uint8_t *supportedSas;
+    uint8_t sasLength;
+    packetDatas_t sendQueue[MAX_QUEUE_LENGTH];
+    uint8_t previousSendQueueIndex;
+    uint8_t sendQueueIndex;
+    packetDatas_t receiveQueue[MAX_QUEUE_LENGTH];
+    uint8_t previousReceiveQueueIndex;
+    uint8_t receiveQueueIndex;
+    mbedtls_ecdsa_context ctx_sign;
+    mbedtls_ecdsa_context ctx_verify;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+} clientContext_t;
 
 /**
  * @brief Store all zrtpPacket informations

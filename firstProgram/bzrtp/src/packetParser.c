@@ -1335,12 +1335,56 @@ bzrtpPacket_t *bzrtp_createZrtpPacket(bzrtpContext_t *zrtpContext, bzrtpChannelC
 				memset(zrtpConfirmMessage, 0, sizeof(bzrtpConfirmMessage_t));
 				/* initialise some fields using zrtp context data */
 				memcpy(zrtpConfirmMessage->H0, zrtpChannelContext->selfH[0], 32);
-				zrtpConfirmMessage->sig_len = 0; /* signature is not supported */
+				zrtpConfirmMessage->sig_len = 0; /* signature is now supported */
 				zrtpConfirmMessage->cacheExpirationInterval = 0xFFFFFFFF; /* expiration interval is set to unlimited as recommended in rfc section 4.9 */
 				zrtpConfirmMessage->E = 0; /* we are not a PBX and then will never signal an enrollment - rfc section 7.3.1 */
 				zrtpConfirmMessage->V = zrtpContext->cachedSecret.previouslyVerifiedSas;
 				zrtpConfirmMessage->A = 0; /* Go clear message is not supported - rfc section 4.7.2 */
 				zrtpConfirmMessage->D = 0; /* The is no backdoor in our implementation of ZRTP - rfc section 11 */
+
+				/*clientContext_t * client = (clientContext_t *) zrtpChannelContext->clientData;
+
+				unsigned char hash[32];
+				unsigned char sig[MBEDTLS_ECDSA_MAX_LEN];
+				int ret = 1;
+				size_t sig_len;
+				const char *pers = "ecdsa";
+
+				printf(" . Seeding the random generator...");
+
+				ret = mbedtls_ctr_drbg_seed(&client->ctr_drbg, mbedtls_entropy_func, &client->entropy, (const unsigned char *) pers, strlen(pers));
+				if (ret)
+				{
+					printf(" failed\n ! mbedtls_ctr_drbg_seed returned %d\n", ret);
+					return NULL;
+				}
+
+				printf(" ok\n . Generating key pair...");
+
+				ret = mbedtls_ecdsa_genkey(&client->ctx_sign, ECPARAMS, mbedtls_ctr_drbg_random, &client->ctr_drbg);
+				if (ret)
+				{
+					printf(" failed\n ! mbedtls_ecdsa_genkey returned %d\n", ret);
+					return NULL;
+				}
+
+				printf(" ok (key size: %d bits)\n", (int) client->ctx_sign.MBEDTLS_PRIVATE(grp).pbits);
+				printf(" . Computing message hash...");
+
+				uint32_t sas = 0;
+
+				memcpy(&sas, zrtpChannelContext->srtpSecrets.sas, sizeof(uint32_t));
+
+				zrtpChannelContext->sasFunction(sas,(char *) hash, sizeof(hash));
+
+				printf(" . Signing message hash...");
+
+				ret = mbedtls_ecdsa_write_signature(&client->ctx_sign, MBEDTLS_MD_SHA256, hash, sizeof(hash), sig, sizeof(sig), &sig_len, mbedtls_ctr_drbg_random, &client->ctr_drbg);
+
+				if (ret)
+				{
+					printf(" failed\n ! mbedtls_ecdsa_write_signature returned %d\n", ret);
+				}*/
 
 				/* generate a random CFB IV */
 				bctbx_rng_get(zrtpContext->RNGContext, zrtpConfirmMessage->CFBIV, 16);
