@@ -12,9 +12,6 @@
 #include "bzrtp/include/zidCache.h"
 #include <string.h>
 
-#define ERROR_INIT_CLIENTCONTEXT 0x01
-#define ERROR_INIT_SUPPORTED 0x02
-
 clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * supportedCipher, int cipherLength, int * supportedHash, int hashLength, int * supportedKeyAgreement, int keyAgreementLength, int * supportedSas, int sasLength);
 void destroyClient(clientContext_t *client);
 

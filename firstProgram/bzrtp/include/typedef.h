@@ -44,7 +44,7 @@
 
 typedef struct bzrtpChannelContext_struct bzrtpChannelContext_t;
 
-#include <bctoolbox/crypto.h>
+#include "bctoolbox/crypto.h"
 #include <bctoolbox/port.h>
 #include "packetParser.h"
 #include "stateMachine.h"

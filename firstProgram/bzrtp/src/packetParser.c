@@ -92,7 +92,93 @@ int32_t messageTypeStringtoInt(uint8_t messageTypeString[8]);
  */
 void zrtpMessageSetHeader(uint8_t *outputBuffer, uint16_t messageLength, uint8_t messageType[8]);
 
+clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * supportedCipher, int cipherLength, int * supportedHash, int hashLength, int * supportedKeyAgreement, int keyAgreementLength, int * supportedSas, int sasLength)
+{
+    clientContext_t * client = (clientContext_t *)malloc(sizeof(clientContext_t));
 
+    if (!client)
+    {
+        printf("Mistake about the client context's init\n");
+    }
+
+	client->publicKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+    client->privateKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_SECRETKEYBYTES * sizeof(uint8_t));
+
+	int ok = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_keypair(client->publicKey, client->privateKey);
+
+    client->authTagLength = authTagLength;
+    client->cipherLength = cipherLength;
+    client->hashLength = hashLength;
+    client->keyAgreementLength = keyAgreementLength;
+    client->sasLength = sasLength;
+
+    client->supportedAuthTag = (uint8_t *)malloc(client->authTagLength*sizeof(uint8_t));
+    client->supportedCipher = (uint8_t *)malloc(client->cipherLength*sizeof(uint8_t));
+    client->supportedHash = (uint8_t *)malloc(client->hashLength*sizeof(uint8_t));
+    client->supportedKeyAgreement = (uint8_t *)malloc(client->keyAgreementLength*sizeof(uint8_t));
+    client->supportedSas = (uint8_t *)malloc(client->sasLength*sizeof(uint8_t));
+
+    if (!client->supportedAuthTag || !client->supportedCipher || !client->supportedHash || !client->supportedKeyAgreement || !client->supportedSas || ok)
+    {
+        printf("Mistake about the supported algorithms malloc\n");
+    }
+
+    for (int i = 0; i < authTagLength; i++)
+    {
+        client->supportedAuthTag[i] = supportedAuthTag[i];
+    }
+
+    for (int i = 0; i < cipherLength; i++)
+    {
+        client->supportedCipher[i] = supportedCipher[i];
+    }
+
+    for (int i = 0; i < hashLength; i++)
+    {
+        client->supportedHash[i] = supportedHash[i];
+    }
+
+    for (int i = 0; i < keyAgreementLength; i++)
+    {
+        client->supportedKeyAgreement[i] = supportedKeyAgreement[i];
+    }
+
+    for (int i = 0; i < sasLength; i++)
+    {
+        client->supportedSas[i] = supportedSas[i];
+    }
+
+    client->previousReceiveQueueIndex = 0;
+    client->receiveQueueIndex = 0;
+    client->previousSendQueueIndex = 0;
+    client->sendQueueIndex = 0;
+
+    for (int i = 0; i < MAX_QUEUE_LENGTH; i++)
+    {
+        client->sendQueue[i].packetLength = 0;
+        client->receiveQueue[i].packetLength = 0;
+
+        for (int j = 0; j < MAX_PACKET_LENGTH; j++)
+        {
+            client->sendQueue[i].packetString[j] = 0;
+            client->receiveQueue[i].packetString[j] = 0;
+        }
+    }
+
+    return client;
+}
+
+void destroyClient(clientContext_t *client)
+{
+	free(client->publicKey);
+	free(client->privateKey);
+    free(client->supportedAuthTag);
+    free(client->supportedCipher);
+    free(client->supportedHash);
+    free(client->supportedKeyAgreement);
+    free(client->supportedSas);
+    free(client);
+}
 
 
 /*** Public functions implementation ***/
@@ -999,6 +1085,7 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 				/* allocate a temporary buffer to store the plain text */
 				encryptedPartLength = zrtpPacket->messageLength - ZRTP_MESSAGE_HEADER_LENGTH - 24; /* message header, confirm_mac(8 bytes) and CFB IV(16 bytes) are not encrypted */
 				plainMessageString = (uint8_t *)malloc(encryptedPartLength*sizeof(uint8_t)); 
+				printf("%d\n", encryptedPartLength);
 
 				/* fill the plain message buffer with data from the message structure */
 				memcpy(plainMessageString, messageData->H0, 32);
@@ -1017,6 +1104,7 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 					memcpy(plainMessageString+plainMessageStringIndex, messageData->signatureBlockType, 4);
 					plainMessageStringIndex += 4;
 					/* sig_len is in 4 bytes words and include the 1 word of signature block type */
+					printf("%d\n", plainMessageStringIndex + (messageData->sig_len-1)*4);
 					memcpy(plainMessageString+plainMessageStringIndex, messageData->signatureBlock, (messageData->sig_len-1)*4);
 				}
 
@@ -1341,50 +1429,6 @@ bzrtpPacket_t *bzrtp_createZrtpPacket(bzrtpContext_t *zrtpContext, bzrtpChannelC
 				zrtpConfirmMessage->V = zrtpContext->cachedSecret.previouslyVerifiedSas;
 				zrtpConfirmMessage->A = 0; /* Go clear message is not supported - rfc section 4.7.2 */
 				zrtpConfirmMessage->D = 0; /* The is no backdoor in our implementation of ZRTP - rfc section 11 */
-
-				/*clientContext_t * client = (clientContext_t *) zrtpChannelContext->clientData;
-
-				unsigned char hash[32];
-				unsigned char sig[MBEDTLS_ECDSA_MAX_LEN];
-				int ret = 1;
-				size_t sig_len;
-				const char *pers = "ecdsa";
-
-				printf(" . Seeding the random generator...");
-
-				ret = mbedtls_ctr_drbg_seed(&client->ctr_drbg, mbedtls_entropy_func, &client->entropy, (const unsigned char *) pers, strlen(pers));
-				if (ret)
-				{
-					printf(" failed\n ! mbedtls_ctr_drbg_seed returned %d\n", ret);
-					return NULL;
-				}
-
-				printf(" ok\n . Generating key pair...");
-
-				ret = mbedtls_ecdsa_genkey(&client->ctx_sign, ECPARAMS, mbedtls_ctr_drbg_random, &client->ctr_drbg);
-				if (ret)
-				{
-					printf(" failed\n ! mbedtls_ecdsa_genkey returned %d\n", ret);
-					return NULL;
-				}
-
-				printf(" ok (key size: %d bits)\n", (int) client->ctx_sign.MBEDTLS_PRIVATE(grp).pbits);
-				printf(" . Computing message hash...");
-
-				uint32_t sas = 0;
-
-				memcpy(&sas, zrtpChannelContext->srtpSecrets.sas, sizeof(uint32_t));
-
-				zrtpChannelContext->sasFunction(sas,(char *) hash, sizeof(hash));
-
-				printf(" . Signing message hash...");
-
-				ret = mbedtls_ecdsa_write_signature(&client->ctx_sign, MBEDTLS_MD_SHA256, hash, sizeof(hash), sig, sizeof(sig), &sig_len, mbedtls_ctr_drbg_random, &client->ctr_drbg);
-
-				if (ret)
-				{
-					printf(" failed\n ! mbedtls_ecdsa_write_signature returned %d\n", ret);
-				}*/
 
 				/* generate a random CFB IV */
 				bctbx_rng_get(zrtpContext->RNGContext, zrtpConfirmMessage->CFBIV, 16);

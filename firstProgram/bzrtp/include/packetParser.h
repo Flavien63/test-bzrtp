@@ -21,11 +21,7 @@
 
 #include <stdint.h>
 #include "bzrtp/bzrtp.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/ecdsa.h"
-#include "mbedtls/sha256.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/sha512.h"
+#include "dilithium/sign.h"
 
 /* header of ZRTP packet is 12 bytes : Preambule/Sequence Number + ZRTP Magic Cookie +  SSRC */
 #define ZRTP_PACKET_HEADER_LENGTH	12
@@ -73,7 +69,7 @@
 #define		MSGTYPE_PING		0x16
 #define		MSGTYPE_PINGACK		0x17
 
-#define MAX_PACKET_LENGTH 1000
+#define MAX_PACKET_LENGTH 10000
 #define ECPARAMS MBEDTLS_ECP_DP_SECP192R1
 #define MAX_QUEUE_LENGTH 10
 
@@ -85,6 +81,8 @@ typedef struct packetDatas_struct {
 typedef struct clientContext_struct
 {
     bzrtpContext_t * context;
+	uint8_t * publicKey;
+	uint8_t * privateKey;
     uint8_t *supportedHash;
     uint8_t hashLength;
     uint8_t *supportedCipher;
@@ -101,11 +99,11 @@ typedef struct clientContext_struct
     packetDatas_t receiveQueue[MAX_QUEUE_LENGTH];
     uint8_t previousReceiveQueueIndex;
     uint8_t receiveQueueIndex;
-    mbedtls_ecdsa_context ctx_sign;
-    mbedtls_ecdsa_context ctx_verify;
-    mbedtls_entropy_context entropy;
-    mbedtls_ctr_drbg_context ctr_drbg;
 } clientContext_t;
+
+clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * supportedCipher, int cipherLength, int * supportedHash, int hashLength, int * supportedKeyAgreement, int keyAgreementLength, int * supportedSas, int sasLength);
+
+void destroyClient(clientContext_t *client);
 
 /**
  * @brief Store all zrtpPacket informations

@@ -170,14 +170,6 @@ int main(int args, char *argv[])
         return ERROR_INIT_CALLBACKS;
     }
 
-    // mbedtls_ctr_drbg_context ctr_drbg;
-
-    // mbedtls_ctr_drbg_init(&ctr_drbg);
-
-    /*mbedtls_entropy_context entropy;
-
-    mbedtls_entropy_init(&entropy);*/
-
     /* Init the client context of Alice and Bob */
     clientContext_t * Alice = initClient(authTagAlice, authTagLengthAlice, cipherAlice, cipherLengthAlice, hashAlice, hashLengthAlice, keyAgreementAlice, keyAgreementLengthAlice, sasAlice, sasLengthAlice);
     clientContext_t * Bob = initClient(authTagBob, authTagLengthBob, cipherBob, cipherLengthBob, hashBob, hashLengthBob, keyAgreementBob, keyAgreementLengthBob, sasBob, sasLengthBob);

@@ -39,7 +39,7 @@ elseif(MBEDTLS_FOUND)
 	list(APPEND SOURCE_FILES cryptoMbedtls.c)
 endif()
 
-bc_apply_compile_flags(SOURCE_FILES STRICT_OPTIONS_CPP)
+#bc_apply_compile_flags(SOURCE_FILES STRICT_OPTIONS_CPP)
 
 set(INCLUDE_DIRS )
 set(LIBS )

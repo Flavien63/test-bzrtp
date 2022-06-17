@@ -10,7 +10,6 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
     }
 
     mbedtls_ecdsa_init(&client->ctx_sign);
-    mbedtls_ecdsa_init(&client->ctx_verify);
 
     client->authTagLength = authTagLength;
     client->cipherLength = cipherLength;
@@ -76,8 +75,6 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
 void destroyClient(clientContext_t *client)
 {
-    mbedtls_ecdsa_free(&client->ctx_sign);
-    mbedtls_ecdsa_free(&client->ctx_verify);
     free(client->supportedAuthTag);
     free(client->supportedCipher);
     free(client->supportedHash);

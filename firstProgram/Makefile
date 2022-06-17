@@ -1,16 +1,17 @@
-CC = gcc
-OPT = -c -Wextra -Wall -g -DONE=1 -std=c99
-CFLAGS = -I./bzrtp/include -I./mbedtls/include
-LDFLAGS = -L./bzrtp -L./mbedtls/library/libmbedtls.a -L./mbedtls/library/libmbedx509.a -L./mbedtls/library/libmbedcrypto.a
-LDLIBS = -lbzrtp -lmbedtls -lmbedx509 -lmbedcrypto
-prog : main.o client.o
-	$(CC) main.o client.o $(CFLAGS) $(LDFLAGS) $(LDLIBS) -o prog
+CC = clang
+OPT = -c -Wextra -Wall -std=c99
+CFLAGS = -I./bzrtp/include -I./bzrtp/include/dilithium
+LDFLAGS = -L./bzrtp	-L./bzrtp/include/dilithium
+LDLIBS = -lbzrtp -lbctoolbox -ldilithium5_clean
 
-main.o : main.c main.h client.o
+COMMON_DIR=./bzrtp/include/common
+COMMON_FILES=$(COMMON_DIR)/aes.c $(COMMON_DIR)/sha2.c $(COMMON_DIR)/fips202.c $(COMMON_DIR)/nistseedexpander.c $(COMMON_DIR)/randombytes.c $(COMMON_DIR)/sp800-185.c
+
+prog : main.o $(COMMON_FILES)
+	$(CC) main.o $(CFLAGS) $(COMMON_FILES) -o prog $(LDFLAGS) $(LDLIBS)
+
+main.o : main.c main.h
 	$(CC) $(OPT) main.c
 
-client.o : client.c client.h
-	$(CC) $(OPT) client.c
-
 clean :
-	rm main.o client.o prog
+	rm main.o prog
