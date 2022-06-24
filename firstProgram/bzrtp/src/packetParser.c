@@ -31,7 +31,7 @@
 #define ZRTP_MIN_PACKET_LENGTH 28
 
 /* maximum length of a ZRTP packet: 3072 bytes get it from GNU-ZRTP CPP code */
-#define ZRTP_MAX_PACKET_LENGTH 3072
+#define ZRTP_MAX_PACKET_LENGTH 10000
 
 /* header of ZRTP message is 12 bytes : Preambule/Message Length + Message Type(2 words) */
 #define ZRTP_MESSAGE_HEADER_LENGTH 12
@@ -103,6 +103,7 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
 	client->publicKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
     client->privateKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_SECRETKEYBYTES * sizeof(uint8_t));
+	client->peerPublicKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
 
 	int ok = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_keypair(client->publicKey, client->privateKey);
 
@@ -143,7 +144,7 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
         client->supportedKeyAgreement[i] = supportedKeyAgreement[i];
     }
 
-    for (int i = 0; i < sasLength; i++)
+    for (int i = 0; i < client->sasLength; i++)
     {
         client->supportedSas[i] = supportedSas[i];
     }
@@ -170,6 +171,7 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
 void destroyClient(clientContext_t *client)
 {
+	free(client->peerPublicKey);
 	free(client->publicKey);
 	free(client->privateKey);
     free(client->supportedAuthTag);
@@ -648,15 +650,12 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 				messageContent +=8;
 				memcpy(messageData->CFBIV, messageContent, 16);
 				messageContent +=16;
-
-
 				
 				/* get the cipher text length */
 				cipherTextLength = zrtpPacket->messageLength - ZRTP_MESSAGE_HEADER_LENGTH - 24; /* confirm message is header, confirm_mac(8 bytes), CFB IV(16 bytes), encrypted part */
 
 				/* validate the mac over the cipher text */
 				zrtpChannelContext->hmacFunction(confirmMessageMacKey, zrtpChannelContext->hashLength, messageContent, cipherTextLength, 8, computedHmac);
-				
 				if (memcmp(computedHmac, messageData->confirm_mac, 8) != 0) { /* confirm_mac doesn't match */
 					free(messageData);
 					return BZRTP_PARSER_ERROR_UNMATCHINGCONFIRMMAC;
@@ -757,7 +756,7 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 					}
 				}
 
-				messageData->sig_len = ((uint16_t)(confirmPlainMessage[0]&0x01))<<8 | (((uint16_t)confirmPlainMessage[1])&0x00FF);
+				messageData->sig_len = ((uint16_t)(confirmPlainMessage[0]&0x00FF))<<8 | (((uint16_t)confirmPlainMessage[1])&0x00FF);
 				confirmPlainMessage += 2;
 				messageData->E = ((*confirmPlainMessage)&0x08)>>3;
 				messageData->V = ((*confirmPlainMessage)&0x04)>>2;
@@ -1084,14 +1083,13 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 
 				/* allocate a temporary buffer to store the plain text */
 				encryptedPartLength = zrtpPacket->messageLength - ZRTP_MESSAGE_HEADER_LENGTH - 24; /* message header, confirm_mac(8 bytes) and CFB IV(16 bytes) are not encrypted */
-				plainMessageString = (uint8_t *)malloc(encryptedPartLength*sizeof(uint8_t)); 
-				printf("%d\n", encryptedPartLength);
+				plainMessageString = (uint8_t *)malloc((encryptedPartLength)*sizeof(uint8_t)); 
 
 				/* fill the plain message buffer with data from the message structure */
 				memcpy(plainMessageString, messageData->H0, 32);
 				plainMessageStringIndex += 32;
 				plainMessageString[plainMessageStringIndex++] = 0x00;
-				plainMessageString[plainMessageStringIndex++] = (uint8_t)(((messageData->sig_len)>>8)&0x0001);
+				plainMessageString[plainMessageStringIndex++] = (uint8_t)(((messageData->sig_len)>>8)&0x00F);
 				plainMessageString[plainMessageStringIndex++] = (uint8_t)((messageData->sig_len)&0x00FF);
 				plainMessageString[plainMessageStringIndex++] = (uint8_t)((messageData->E&0x01)<<3) | (uint8_t)((messageData->V&0x01)<<2) | (uint8_t)((messageData->A&0x01)<<1) | (uint8_t)(messageData->D&0x01) ;
 				/* cache expiration in a 32 bits unsigned int */
@@ -1104,7 +1102,6 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 					memcpy(plainMessageString+plainMessageStringIndex, messageData->signatureBlockType, 4);
 					plainMessageStringIndex += 4;
 					/* sig_len is in 4 bytes words and include the 1 word of signature block type */
-					printf("%d\n", plainMessageStringIndex + (messageData->sig_len-1)*4);
 					memcpy(plainMessageString+plainMessageStringIndex, messageData->signatureBlock, (messageData->sig_len-1)*4);
 				}
 

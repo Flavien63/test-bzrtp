@@ -83,6 +83,7 @@ typedef struct clientContext_struct
     bzrtpContext_t * context;
 	uint8_t * publicKey;
 	uint8_t * privateKey;
+	uint8_t * peerPublicKey;
     uint8_t *supportedHash;
     uint8_t hashLength;
     uint8_t *supportedCipher;
