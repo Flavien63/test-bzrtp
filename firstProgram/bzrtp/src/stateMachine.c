@@ -990,6 +990,7 @@ int state_keyAgreement_initiatorSendingDHPart2(bzrtpEvent_t event) {
 		if (zrtpPacket->messageType == MSGTYPE_CONFIRM1) {
 			bzrtpConfirmMessage_t *confirm1Packet;
 			bzrtpEvent_t initEvent;
+			clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 
 			/* parse the packet */
 			retval = bzrtp_packetParser(zrtpContext, zrtpChannelContext, event.bzrtpPacketString, event.bzrtpPacketStringLength, zrtpPacket);
@@ -998,11 +999,54 @@ int state_keyAgreement_initiatorSendingDHPart2(bzrtpEvent_t event) {
 				return retval;
 			}
 
+			/* derive SAS secrets */
+			retval = bzrtp_deriveSasKeysFromS0(zrtpContext, zrtpChannelContext);
+
 			/* stop the timer */
 			zrtpChannelContext->timer.status = BZRTP_TIMER_OFF;
 
 			/* update context with the information found in the packet */
 			confirm1Packet = (bzrtpConfirmMessage_t *)zrtpPacket->messageData;
+
+			/* malloc signature block for receiving the signature */
+			uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
+
+			/* process the signature and copy that */
+			for (int i = 0; i < PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES; i++)
+			{
+				signature[i] = confirm1Packet->signatureBlock[i];
+			}
+			/* process the public key and copy that */
+			for (int i = 0; i < PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES; i++)
+			{
+				clientContext->peerPublicKey[i] = confirm1Packet->signatureBlock[PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + i];
+			}
+
+			/* malloc the sas block for receiving the sas from the srtp secrets */
+			size_t sasLength = 4;
+			uint8_t * sas = (uint8_t *)malloc(sasLength * sizeof(uint8_t));
+
+			sas[0] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[0];
+			sas[1] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[1];
+			sas[2] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[2];
+			sas[3] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[3];
+
+			/* verifying the signature */
+			retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_verify(signature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES, sas, sasLength, clientContext->peerPublicKey);
+
+			if (retval)
+			{
+				return retval;
+			}
+			else
+			{
+				printf("Signature is ok for Confirm1\n");
+			}
+
+			/* free the sas and the signature */
+			free(sas);
+			free(signature);
+
 			memcpy(zrtpChannelContext->peerH[0], confirm1Packet->H0, 32);
 			/* on the first channel, set peerPVS in context */
 			if (zrtpChannelContext->keyAgreementAlgo != ZRTP_KEYAGREEMENT_Mult) {
@@ -1116,6 +1160,7 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 		/* Derive SAS secrets */
 		retval = bzrtp_deriveSasKeysFromS0(zrtpContext, zrtpChannelContext);
 
+		/* malloc the sas block for receiving the sas from the srtp secrets */
 		size_t sasLength = 4;
 		uint8_t * sas = (uint8_t *)malloc(sasLength * sizeof(uint8_t));
 
@@ -1124,10 +1169,12 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 		sas[2] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[2];
 		sas[3] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[3];
 		
+		/* malloc the signature block to initialize it and put the good length */
 		uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 		confirm1Message->sig_len = (PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES) / 4 + 2; // Mettre en mot(voir spécification) + 1 mot
 		size_t signatureLength = 0;
 
+		/* calculating the signature of the sas */
 		retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_signature(signature, &signatureLength, sas, sasLength, clientContext->privateKey);
 
 		if (retval)
@@ -1135,8 +1182,10 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			return retval;
 		}
 
+		/* malloc the signature block to inser the signature previously calculated */
 		confirm1Message->signatureBlock = (uint8_t *)malloc((confirm1Message->sig_len * 4 - 1)*sizeof(uint8_t));
 
+		/* Initialize and copy the signature and the public key */
 		for (int i = 0; i < confirm1Message->sig_len * 4 - 1; i++)
 		{
 			confirm1Message->signatureBlock[i] = 0;
@@ -1152,9 +1201,11 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			confirm1Message->signatureBlock[PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + i] = clientContext->publicKey[i];
 		}
  
+		/* copy the message in the packet and free sas and signature */
 		confirm1Packet->messageData = confirm1Message;
 		free(sas);
 		free(signature);
+		
 		retval = bzrtp_packetBuild(zrtpContext, zrtpChannelContext, confirm1Packet, zrtpChannelContext->selfSequenceNumber);
 		if (retval!=0) {
 			bzrtp_freeZrtpPacket(confirm1Packet);
@@ -1263,17 +1314,21 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			/* update context with the information found in the packet */
 			confirm2Packet = (bzrtpConfirmMessage_t *)zrtpPacket->messageData;
 
+			/* malloc signature block for receiving the signature */
 			uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 
+			/* process the signature and copy that */
 			for (int i = 0; i < PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES; i++)
 			{
 				signature[i] = confirm2Packet->signatureBlock[i];
 			}
+			/* process the public key and copy that */
 			for (int i = 0; i < PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES; i++)
 			{
 				clientContext->peerPublicKey[i] = confirm2Packet->signatureBlock[PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + i];
 			}
 
+			/* malloc the sas block for receiving the sas from the srtp secrets */
 			size_t sasLength = 4;
 			uint8_t * sas = (uint8_t *)malloc(sasLength * sizeof(uint8_t));
 
@@ -1282,13 +1337,19 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			sas[2] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[2];
 			sas[3] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[3];
 
+			/* verifying the signature */
 			retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_verify(signature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES, sas, sasLength, clientContext->peerPublicKey);
 
 			if (retval)
 			{
-				printf("Nop c'est pas ça\n");
+				return retval;
+			}
+			else
+			{
+				printf("Signature is ok for Confirm2\n");
 			}
 
+			/* free the sas and the signature */
 			free(sas);
 			free(signature);
 
@@ -1399,12 +1460,10 @@ int state_confirmation_initiatorSendingConfirm2(bzrtpEvent_t event) {
 			return retval;
 		}
 		bzrtpConfirmMessage_t *confirm2Message = confirm2Packet->messageData;
-		
-		/* Derive SAS secrets */
-		retval = bzrtp_deriveSasKeysFromS0(zrtpContext, zrtpChannelContext);
 
 		clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 
+		/* malloc the sas block for receiving the sas from the srtp secrets */
 		size_t sasLength = 4;
 		uint8_t * sas = (uint8_t *)malloc(sasLength * sizeof(uint8_t));
 
@@ -1413,10 +1472,12 @@ int state_confirmation_initiatorSendingConfirm2(bzrtpEvent_t event) {
 		sas[2] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[2];
 		sas[3] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[3];
 		
+		/* malloc the signature block to initialize it and put the good length */
 		uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 		confirm2Message->sig_len = (PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES) / 4 + 2; // Mettre en mot(voir spécification) + 1 mot
 		size_t signatureLength = 0;
 
+		/* calculating the signature of the sas */
 		retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_signature(signature, &signatureLength, sas, sasLength, clientContext->privateKey);
 
 		if (retval)
@@ -1424,8 +1485,10 @@ int state_confirmation_initiatorSendingConfirm2(bzrtpEvent_t event) {
 			return retval;
 		}
 
+		/* malloc the signature block to inser the signature previously calculated */
 		confirm2Message->signatureBlock = (uint8_t *)malloc((confirm2Message->sig_len * 4 - 1)*sizeof(uint8_t));
 
+		/* Initialize and copy the signature and the public key */
 		for (int i = 0; i < confirm2Message->sig_len * 4 - 1; i++)
 		{
 			confirm2Message->signatureBlock[i] = 0;
@@ -1440,7 +1503,8 @@ int state_confirmation_initiatorSendingConfirm2(bzrtpEvent_t event) {
 		{
 			confirm2Message->signatureBlock[PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + i] = clientContext->publicKey[i];
 		}
- 
+
+		/* copy the message in the packet and free sas and signature */
 		confirm2Packet->messageData = confirm2Message;
 		free(sas);
 		free(signature);
