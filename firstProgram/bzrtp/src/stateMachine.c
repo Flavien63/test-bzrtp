@@ -1079,11 +1079,11 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 	/* get the contextes from the event */
 	bzrtpContext_t *zrtpContext = event.zrtpContext;
 	bzrtpChannelContext_t *zrtpChannelContext = event.zrtpChannelContext;
-	clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 
 	/*** Manage the first call to this function ***/
 	if (event.eventType == BZRTP_EVENT_INIT) {
 		bzrtpPacket_t *confirm1Packet;
+		clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 
 		/* when in multistream mode, we must derive s0 and other keys from ZRTPSess */
 		if (zrtpChannelContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_Mult) {
@@ -1251,6 +1251,7 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			bzrtpConfirmMessage_t *confirm2Packet;
 			bzrtpPacket_t *conf2ACKPacket;
 			bzrtpEvent_t initEvent;
+			clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 
 			/* parse the packet */
 			retval = bzrtp_packetParser(zrtpContext, zrtpChannelContext, event.bzrtpPacketString, event.bzrtpPacketStringLength, zrtpPacket);
@@ -1281,7 +1282,7 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 			sas[2] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[2];
 			sas[3] = (uint8_t) zrtpChannelContext->srtpSecrets.sas[3];
 
-			//retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_verify(signature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES, sas, sasLength, clientContext->peerPublicKey);
+			retval = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_verify(signature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES, sas, sasLength, clientContext->peerPublicKey);
 
 			if (retval)
 			{
