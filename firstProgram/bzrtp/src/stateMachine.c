@@ -489,8 +489,11 @@ int state_keyAgreement_sendingCommit(bzrtpEvent_t event) {
 			dhPart1Message = (bzrtpDHPartMessage_t *)zrtpPacket->messageData;
 
 			clientContext_t * clientContext = (clientContext_t *)zrtpChannelContext->clientData;
+			
+			/* copy the cipherText that we receive in the clientContext */
 			memcpy(clientContext->cipherText, dhPart1Message->cipherText, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
 
+			/* obtaining the secretShared from the cipherText and the privateKey */
 			retval = PQCLEAN_KYBER768_CLEAN_crypto_kem_dec(clientContext->secretShared, clientContext->cipherText, clientContext->privateKeySharedSecret);
 
 			if (retval)
@@ -1799,10 +1802,13 @@ int bzrtp_turnIntoResponder(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *
 				memcpy(selfDHPart1Packet->auxsecretID, zrtpChannelContext->responderAuxsecretID, 8);
 				memcpy(selfDHPart1Packet->pbxsecretID, zrtpContext->responderCachedSecretHash.pbxsecretID, 8);
 
+				/* find the clientData */
 				clientContext_t * clientContext = (clientContext_t *)zrtpChannelContext->clientData;
 
+				/* copy the publicKey receive in the Commit message */
 				memcpy(clientContext->peerPublicKeySharedSecret, commitMessage->publicKey, PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES);
 
+				/* obtaining the cipherText and the secretShared with the peer public key */
 				retval = PQCLEAN_KYBER768_CLEAN_crypto_kem_enc(clientContext->cipherText, clientContext->secretShared, clientContext->peerPublicKeySharedSecret);
 
 				if (retval)
@@ -1810,6 +1816,7 @@ int bzrtp_turnIntoResponder(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *
 					return retval;
 				}
 
+				/* copy the cipherText in the DHPart1 message that we will send */
 				memcpy(selfDHPart1Packet->cipherText, clientContext->cipherText, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
 
 				/* free the packet string and rebuild the packet */
