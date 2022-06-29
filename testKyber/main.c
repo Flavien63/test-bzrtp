@@ -10,6 +10,8 @@ int main()
     uint8_t * sharedSecret = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
     uint8_t * sharedSecretPeer = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 
+    printf("Public key length : %d\nPrivate key length : %d\n", PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES, PQCLEAN_KYBER768_CLEAN_CRYPTO_SECRETKEYBYTES);
+
     ok = PQCLEAN_KYBER768_CLEAN_crypto_kem_keypair(publicKey, privateKey);
 
     printf("Public Key : ");
@@ -31,7 +33,7 @@ int main()
     printf("Shared Secret : ");
     for (int i = 0; i < PQCLEAN_KYBER768_CLEAN_CRYPTO_BYTES; i++)
     {
-        printf("%c%c", "0123456789ABCDEF" [sharedSecret[i] / 16], "0123456789ABCDEF" [sharedSecret[i] % 16]);
+        printf("%d ", sharedSecret[i]);
     }
     printf("\n");
 
@@ -40,7 +42,7 @@ int main()
     printf("Shared Secret Peer : ");
     for (int i = 0; i < PQCLEAN_KYBER768_CLEAN_CRYPTO_BYTES; i++)
     {
-        printf("%c%c", "0123456789ABCDEF" [sharedSecretPeer[i] / 16], "0123456789ABCDEF" [sharedSecretPeer[i] % 16]);
+        printf("%d ", sharedSecretPeer[i]);
     }
     printf("\n");
 

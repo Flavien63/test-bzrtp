@@ -335,7 +335,7 @@ int main(int args, char *argv[])
     /* We are searching if Alice is the responder or not, it depends on the HVI */
     if (Alice->sendQueue[Alice->previousSendQueueIndex].packetLength)
     {
-        printf("Alice is Responder and bob is Initiator\n");
+        printf("Alice is Responder and Bob is Initiator\n");
 
         /* Put the Alice's DHPart1 packet in the Bob's queue */
         Bob->receiveQueue[Bob->receiveQueueIndex].packetLength = Alice->sendQueue[Alice->previousSendQueueIndex].packetLength;
@@ -481,7 +481,7 @@ int main(int args, char *argv[])
             printf("The SRTP secrets are the same\n");
         }
         else
-            printf("Erreur dans : %d\n", retval);
+            printf("Error in : %d\n", retval);
     }
     else
     {
@@ -664,7 +664,7 @@ int main(int args, char *argv[])
         /* CHecking if the sending of the Bob's Conf2Ack was good or not */
         if (retval)
         {
-            printf("Erreur dans l'envoi du Conf2Ack de Bob : %d\n", retval);
+            printf("Mistake about the sending of Bob's Conf2Ack : %d\n", retval);
             return ERROR_PROCESS_MESSAGE;
         }
 
@@ -678,7 +678,7 @@ int main(int args, char *argv[])
             printf("The SRTP secrets are the same\n");
         }
         else
-            printf("Erreur dans : %d\n", retval);
+            printf("Error in : %d\n", retval);
 
         bzrtp_freeZrtpPacket(conf2AckPacket);
     }

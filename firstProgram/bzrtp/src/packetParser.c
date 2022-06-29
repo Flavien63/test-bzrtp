@@ -101,11 +101,17 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
         printf("Mistake about the client context's init\n");
     }
 
-	client->publicKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
-    client->privateKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_SECRETKEYBYTES * sizeof(uint8_t));
-	client->peerPublicKey = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+	client->publicKeySignature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+    client->privateKeySignature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_SECRETKEYBYTES * sizeof(uint8_t));
+	client->peerPublicKeySignature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+	client->publicKeySharedSecret = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+	client->privateKeySharedSecret = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_SECRETKEYBYTES * sizeof(uint8_t));
+	client->peerPublicKeySharedSecret = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES * sizeof(uint8_t));
+	client->cipherText = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES * sizeof(uint8_t));
+	client->secretShared = (uint8_t *)malloc(PQCLEAN_KYBER768_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 
-	int ok = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_keypair(client->publicKey, client->privateKey);
+	int ok = PQCLEAN_DILITHIUM5_CLEAN_crypto_sign_keypair(client->publicKeySignature, client->privateKeySignature);
+	ok = PQCLEAN_KYBER768_CLEAN_crypto_kem_keypair(client->publicKeySharedSecret, client->privateKeySharedSecret);
 
     client->authTagLength = authTagLength;
     client->cipherLength = cipherLength;
@@ -171,9 +177,14 @@ clientContext_t * initClient(int * supportedAuthTag, int authTagLength, int * su
 
 void destroyClient(clientContext_t *client)
 {
-	free(client->peerPublicKey);
-	free(client->publicKey);
-	free(client->privateKey);
+	free(client->secretShared);
+	free(client->cipherText);
+	free(client->peerPublicKeySignature);
+	free(client->publicKeySignature);
+	free(client->privateKeySignature);
+	free(client->publicKeySharedSecret);
+	free(client->privateKeySharedSecret);
+	free(client->peerPublicKeySharedSecret);
     free(client->supportedAuthTag);
     free(client->supportedCipher);
     free(client->supportedHash);
@@ -458,7 +469,7 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 						return BZRTP_PARSER_ERROR_INVALIDMESSAGE;
 				}
 
-				if (zrtpPacket->messageLength != ZRTP_COMMITMESSAGE_FIXED_LENGTH + variableLength) {
+				if (zrtpPacket->messageLength != ZRTP_COMMITMESSAGE_FIXED_LENGTH + variableLength + PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES) {
 					free(messageData);
 					return BZRTP_PARSER_ERROR_INVALIDMESSAGE;
 				}
@@ -480,6 +491,9 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 					messageContent +=32;
 				}
 
+				memcpy(messageData->publicKey, messageContent, PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES);
+				messageContent += PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES;
+
 				/* get the MAC and attach the message data to the packet structure */
 				memcpy(messageData->MAC, messageContent, 8);
 				zrtpPacket->messageData = (void *)messageData;
@@ -500,7 +514,7 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 					return BZRTP_PARSER_ERROR_INVALIDCONTEXT;
 				}
 
-				if (zrtpPacket->messageLength != ZRTP_DHPARTMESSAGE_FIXED_LENGTH+pvLength) {
+				if (zrtpPacket->messageLength != ZRTP_DHPARTMESSAGE_FIXED_LENGTH+pvLength+PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES) {
 					return BZRTP_PARSER_ERROR_INVALIDMESSAGE;
 				}
 
@@ -604,6 +618,8 @@ int bzrtp_packetParser(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpC
 				messageContent +=8;
 				memcpy(messageData->pv, messageContent, pvLength);
 				messageContent +=pvLength;
+				memcpy(messageData->cipherText, messageContent, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+				messageContent +=PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES;
 				memcpy(messageData->MAC, messageContent, 8);
 
 				/* attach the message structure to the packet one */
@@ -947,10 +963,14 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 					default:
 						return BZRTP_BUILDER_ERROR_INVALIDMESSAGE;
 				}
-				zrtpPacket->messageLength = ZRTP_COMMITMESSAGE_FIXED_LENGTH + variableLength;
+				zrtpPacket->messageLength = ZRTP_COMMITMESSAGE_FIXED_LENGTH + variableLength + PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES;
 				
 				/* allocate the packetString buffer : packet is header+message+crc */
 				zrtpPacket->packetString = (uint8_t *)malloc((ZRTP_PACKET_HEADER_LENGTH+zrtpPacket->messageLength+ZRTP_PACKET_CRC_LENGTH)*sizeof(uint8_t));
+				for (int i = 0; i < ZRTP_PACKET_HEADER_LENGTH+zrtpPacket->messageLength+ZRTP_PACKET_CRC_LENGTH; i++)
+				{
+					zrtpPacket->packetString[i] = 0;
+				}
 				/* have the messageString pointer to the begining of message(after the message header wich is computed for all messages after the switch)
 				 * within the packetString buffer*/
 				messageString = zrtpPacket->packetString + ZRTP_PACKET_HEADER_LENGTH + ZRTP_MESSAGE_HEADER_LENGTH;
@@ -985,6 +1005,8 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 					memcpy(messageString, messageData->hvi, 32);
 					messageString +=32;
 				}
+				memcpy(messageString, messageData->publicKey, PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES);
+				messageString += PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES;
 			
 				/* there is a MAC to compute, set the pointers to the key and MAC output buffer */
 				MACbuffer = messageString;
@@ -1010,7 +1032,7 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 				if (pvLength==0) {
 					return BZRTP_BUILDER_ERROR_INVALIDCONTEXT;
 				}
-				zrtpPacket->messageLength = ZRTP_DHPARTMESSAGE_FIXED_LENGTH + pvLength;
+				zrtpPacket->messageLength = ZRTP_DHPARTMESSAGE_FIXED_LENGTH + pvLength + PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES;
 				
 				/* allocate the packetString buffer : packet is header+message+crc */
 				zrtpPacket->packetString = (uint8_t *)malloc((ZRTP_PACKET_HEADER_LENGTH+zrtpPacket->messageLength+ZRTP_PACKET_CRC_LENGTH)*sizeof(uint8_t));
@@ -1031,6 +1053,8 @@ int bzrtp_packetBuild(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpCh
 				messageString += 8;
 				memcpy(messageString, messageData->pv, pvLength);
 				messageString += pvLength;
+				memcpy(messageString, messageData->cipherText, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+				messageString += PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES;
 
 				/* there is a MAC to compute, set the pointers to the key and MAC output buffer */
 				MACbuffer = messageString;
@@ -1267,6 +1291,7 @@ bzrtpPacket_t *bzrtp_createZrtpPacket(bzrtpContext_t *zrtpContext, bzrtpChannelC
 		case MSGTYPE_COMMIT :
 			{
 				bzrtpCommitMessage_t *zrtpCommitMessage = (bzrtpCommitMessage_t *)malloc(sizeof(bzrtpCommitMessage_t));
+				clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
 				memset(zrtpCommitMessage, 0, sizeof(bzrtpCommitMessage_t));
 				
 				/* initialise some fields using zrtp context data */
@@ -1277,6 +1302,7 @@ bzrtpPacket_t *bzrtp_createZrtpPacket(bzrtpContext_t *zrtpContext, bzrtpChannelC
 				zrtpCommitMessage->authTagAlgo = zrtpChannelContext->authTagAlgo;
 				zrtpCommitMessage->keyAgreementAlgo = zrtpChannelContext->keyAgreementAlgo;
 				zrtpCommitMessage->sasAlgo = zrtpChannelContext->sasAlgo;
+				memcpy(zrtpCommitMessage->publicKey, clientContext->publicKeySharedSecret, PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES);
 
 				/* if it is a multistream or preshared commit create a 16 random bytes nonce */
 				if ((zrtpCommitMessage->keyAgreementAlgo == ZRTP_KEYAGREEMENT_Prsh) || (zrtpCommitMessage->keyAgreementAlgo == ZRTP_KEYAGREEMENT_Mult)) {
