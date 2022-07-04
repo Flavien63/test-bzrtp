@@ -25,12 +25,15 @@
 #include "zidCache.h"
 #include <bctoolbox/crypto.h>
 #include "stateMachine.h"
+#include "mbedtls/hkdf.h"
+#include "mbedtls/sha256.h"
 
 
 /* Local functions prototypes */
 int bzrtp_turnIntoResponder(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext, bzrtpPacket_t *zrtpPacket, bzrtpCommitMessage_t *commitMessage);
 int bzrtp_responseToHelloMessage(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext, bzrtpPacket_t *zrtpPacket);
 int bzrtp_computeS0DHMMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
+int bzrtp_combineKyberAndDhSecret(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_computeS0MultiStreamMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_deriveKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
 int bzrtp_deriveSasKeysFromS0(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext);
@@ -487,14 +490,14 @@ int state_keyAgreement_sendingCommit(bzrtpEvent_t event) {
 			zrtpChannelContext->timer.status = BZRTP_TIMER_OFF;
 
 			dhPart1Message = (bzrtpDHPartMessage_t *)zrtpPacket->messageData;
-
-			clientContext_t * clientContext = (clientContext_t *)zrtpChannelContext->clientData;
 			
-			/* copy the cipherText that we receive in the clientContext */
-			memcpy(clientContext->cipherText, dhPart1Message->cipherText, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+			/* copy the cipherText that we receive in the zrtpChannelContext */
+			zrtpChannelContext->kyberCipher = (uint8_t *)malloc(PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES * sizeof(uint8_t));
+			zrtpChannelContext->kyberSecret = (uint8_t *)malloc(PQCLEAN_KYBER1024_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
+			memcpy(zrtpChannelContext->kyberCipher, dhPart1Message->cipherText, PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES);
 
 			/* obtaining the secretShared from the cipherText and the privateKey */
-			retval = PQCLEAN_KYBER768_CLEAN_crypto_kem_dec(clientContext->secretShared, clientContext->cipherText, clientContext->privateKeySharedSecret);
+			retval = PQCLEAN_KYBER1024_CLEAN_crypto_kem_dec(zrtpChannelContext->kyberSecret, zrtpChannelContext->kyberCipher, zrtpChannelContext->kyberPrivateKey);
 
 			if (retval)
 			{
@@ -1003,8 +1006,7 @@ int state_keyAgreement_initiatorSendingDHPart2(bzrtpEvent_t event) {
 		if (zrtpPacket->messageType == MSGTYPE_CONFIRM1) {
 			bzrtpConfirmMessage_t *confirm1Packet;
 			bzrtpEvent_t initEvent;
-			clientContext_t * clientContext = (clientContext_t *) zrtpChannelContext->clientData;
-
+			clientContext_t * clientContext = (clientContext_t *)zrtpChannelContext->clientData;
 			/* parse the packet */
 			retval = bzrtp_packetParser(zrtpContext, zrtpChannelContext, event.bzrtpPacketString, event.bzrtpPacketStringLength, zrtpPacket);
 			if (retval != 0) {
@@ -1802,14 +1804,13 @@ int bzrtp_turnIntoResponder(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *
 				memcpy(selfDHPart1Packet->auxsecretID, zrtpChannelContext->responderAuxsecretID, 8);
 				memcpy(selfDHPart1Packet->pbxsecretID, zrtpContext->responderCachedSecretHash.pbxsecretID, 8);
 
-				/* find the clientData */
-				clientContext_t * clientContext = (clientContext_t *)zrtpChannelContext->clientData;
-
 				/* copy the publicKey receive in the Commit message */
-				memcpy(clientContext->peerPublicKeySharedSecret, commitMessage->publicKey, PQCLEAN_KYBER768_CLEAN_CRYPTO_PUBLICKEYBYTES);
+				memcpy(zrtpChannelContext->kyberPublicKey, commitMessage->publicKey, PQCLEAN_KYBER1024_CLEAN_CRYPTO_PUBLICKEYBYTES);
 
 				/* obtaining the cipherText and the secretShared with the peer public key */
-				retval = PQCLEAN_KYBER768_CLEAN_crypto_kem_enc(clientContext->cipherText, clientContext->secretShared, clientContext->peerPublicKeySharedSecret);
+				zrtpChannelContext->kyberCipher = (uint8_t *)malloc(PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES * sizeof(uint8_t));
+				zrtpChannelContext->kyberSecret = (uint8_t *)malloc(PQCLEAN_KYBER1024_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
+				retval = PQCLEAN_KYBER1024_CLEAN_crypto_kem_enc(zrtpChannelContext->kyberCipher, zrtpChannelContext->kyberSecret, zrtpChannelContext->kyberPublicKey);
 
 				if (retval)
 				{
@@ -1817,7 +1818,7 @@ int bzrtp_turnIntoResponder(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *
 				}
 
 				/* copy the cipherText in the DHPart1 message that we will send */
-				memcpy(selfDHPart1Packet->cipherText, clientContext->cipherText, PQCLEAN_KYBER768_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+				memcpy(selfDHPart1Packet->cipherText, zrtpChannelContext->kyberCipher, PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES);
 
 				/* free the packet string and rebuild the packet */
 				free(zrtpChannelContext->selfPackets[DHPART_MESSAGE_STORE_ID]->packetString);
@@ -2124,7 +2125,7 @@ int bzrtp_computeS0DHMMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *z
 	s3 = zrtpContext->cachedSecret.pbxsecret; /* this may be null if no match or no pbx secret where found */
 	s3Length = zrtpContext->cachedSecret.pbxsecretLength; /* this may be 0 if no match or no pbx secret where found */
 
-	hashDataLength = 4/*counter*/ + zrtpChannelContext->keyAgreementLength/*DHResult*/+13/*ZRTP-HMAC-KDF string*/ + 12/*ZIDi*/ + 12/*ZIDr*/ + zrtpChannelContext->hashLength/*total_hash*/ + 4/*len(s1)*/ +s1Length/*s1*/ + 4/*len(s2)*/ +s2Length/*s2*/ + 4/*len(s3)*/ + s3Length/*s3*/;
+	hashDataLength = 4/*counter*/ + COMBINESECRETLENGTH/*DHResult*/+13/*ZRTP-HMAC-KDF string*/ + 12/*ZIDi*/ + 12/*ZIDr*/ + zrtpChannelContext->hashLength/*total_hash*/ + 4/*len(s1)*/ +s1Length/*s1*/ + 4/*len(s2)*/ +s2Length/*s2*/ + 4/*len(s3)*/ + s3Length/*s3*/;
 
 	dataToHash = (uint8_t *)malloc(hashDataLength*sizeof(uint8_t));
 	/* counter */
@@ -2134,16 +2135,27 @@ int bzrtp_computeS0DHMMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *z
 	dataToHash[3] = 0x01;
 	hashDataIndex = 4;
 
-	if (zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH2k || zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH3k) {
+	/*if (zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH2k || zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH3k) {
 		bctbx_DHMContext_t *DHMContext = (bctbx_DHMContext_t *)zrtpContext->keyAgreementContext;
+		//zrtpChannelContext->hmacFunction(DHMContext->key, zrtpChannelContext->keyAgreementLength, 0, 0, 8, k);
 		memcpy(dataToHash+hashDataIndex, DHMContext->key, zrtpChannelContext->keyAgreementLength);
 	}
 	if (zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_X255 || zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_X448) {
 		bctbx_ECDHContext_t *ECDHContext = (bctbx_ECDHContext_t *)zrtpContext->keyAgreementContext;
+		//zrtpChannelContext->hmacFunction(ECDHContext->sharedSecret, zrtpChannelContext->keyAgreementLength, 0, 0, 8, k);
 		memcpy(dataToHash+hashDataIndex, ECDHContext->sharedSecret, zrtpChannelContext->keyAgreementLength);
+	}*/
+
+	int retval = bzrtp_combineKyberAndDhSecret(zrtpContext, zrtpChannelContext);
+
+	if (retval)
+	{
+		printf("%d\n", retval);
 	}
 
-	hashDataIndex += zrtpChannelContext->keyAgreementLength;
+	memcpy(dataToHash+hashDataIndex, zrtpChannelContext->combineSecretKey, COMBINESECRETLENGTH);
+
+	hashDataIndex += COMBINESECRETLENGTH;
 	memcpy(dataToHash+hashDataIndex, "ZRTP-HMAC-KDF", 13);
 	hashDataIndex += 13;
 	/* KDF Context is already ZIDi || ZIDr || total_hash use it directly */
@@ -2210,6 +2222,153 @@ int bzrtp_computeS0DHMMode(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *z
 
 	/* now derive the other keys */
 	return bzrtp_deriveKeysFromS0(zrtpContext, zrtpChannelContext);
+}
+
+/**
+ * @brief Use after the dhPart1 and dhPart2 to combine the Kyber secret and the DH secret
+ * 
+ * param[in]	zrtpContext			The context we are operation on(where to find the ZRTPSess)
+ * param[in]	zrtpChannelContext	The channel context we are operation on
+ * 
+ * return 0 on succes, error code otherwise
+ */
+
+int bzrtp_combineKyberAndDhSecret(bzrtpContext_t *zrtpContext, bzrtpChannelContext_t *zrtpChannelContext)
+{
+	int retval = 0;
+
+	const mbedtls_md_info_t *md_info;
+
+	uint8_t * k = (uint8_t *)malloc(zrtpChannelContext->hashLength * sizeof(uint8_t));
+	unsigned char * kChar = (unsigned char *)malloc(zrtpChannelContext->hashLength * sizeof(unsigned char));
+
+	uint8_t * kPrime = (uint8_t *)malloc(COMBINESECRETLENGTH * sizeof(uint8_t));
+	unsigned char * kPrimeChar = (unsigned char *)malloc(COMBINESECRETLENGTH * sizeof(unsigned char));
+
+	uint8_t * kd = (uint8_t *)malloc(zrtpChannelContext->hashLength * sizeof(uint8_t));
+	unsigned char * kdChar = (unsigned char *)malloc(zrtpChannelContext->hashLength * sizeof(unsigned char));
+	
+	uint8_t * combineK = (uint8_t *)malloc(COMBINESECRETLENGTH * sizeof(uint8_t));
+	unsigned char * combineKChar = (unsigned char *)malloc(COMBINESECRETLENGTH * sizeof(unsigned char));
+
+	uint8_t * publicKeyDH = (uint8_t *)malloc(2 * zrtpChannelContext->keyAgreementLength * sizeof(uint8_t));
+	unsigned char * publicKeyChar = (unsigned char *)malloc(2 * zrtpChannelContext->keyAgreementLength * sizeof(unsigned char));
+
+	uint8_t * ctxtPublicKeyDH = (uint8_t *)malloc((PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES + 2 * zrtpChannelContext->keyAgreementLength) * sizeof(uint8_t));
+	unsigned char * ctxtPublicKeyDHChar = (unsigned char *)malloc((PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES + 2 * zrtpChannelContext->keyAgreementLength) * sizeof(unsigned char));
+
+	bzrtpDHPartMessage_t * dhPart1Message = (bzrtpDHPartMessage_t *)malloc(sizeof(bzrtpDHPartMessage_t));
+	bzrtpDHPartMessage_t * dhPart2Message = (bzrtpDHPartMessage_t *)malloc(sizeof(bzrtpDHPartMessage_t));
+
+	if (zrtpChannelContext->role == BZRTP_ROLE_RESPONDER)
+	{
+		dhPart1Message = zrtpChannelContext->selfPackets[DHPART_MESSAGE_STORE_ID]->messageData;
+		dhPart2Message = zrtpChannelContext->peerPackets[DHPART_MESSAGE_STORE_ID]->messageData;
+	} else { /* we are initiator */
+		dhPart1Message = zrtpChannelContext->peerPackets[DHPART_MESSAGE_STORE_ID]->messageData;
+		dhPart2Message = zrtpChannelContext->selfPackets[DHPART_MESSAGE_STORE_ID]->messageData;
+	}
+
+	if (zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH2k || zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_DH3k) {
+		bctbx_DHMContext_t *DHMContext = (bctbx_DHMContext_t *)zrtpContext->keyAgreementContext;
+		zrtpChannelContext->hmacFunction(DHMContext->key, zrtpChannelContext->keyAgreementLength, 0, 0, zrtpChannelContext->hashLength, k);
+		//memcpy(dataToHash+hashDataIndex, DHMContext->key, zrtpChannelContext->keyAgreementLength);
+	}
+	if (zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_X255 || zrtpContext->keyAgreementAlgo == ZRTP_KEYAGREEMENT_X448) {
+		bctbx_ECDHContext_t *ECDHContext = (bctbx_ECDHContext_t *)zrtpContext->keyAgreementContext;
+		zrtpChannelContext->hmacFunction(ECDHContext->sharedSecret, zrtpChannelContext->keyAgreementLength, 0, 0, zrtpChannelContext->hashLength, k);
+		//memcpy(dataToHash+hashDataIndex, ECDHContext->sharedSecret, zrtpChannelContext->keyAgreementLength);
+	}
+
+	for (int i = 0; i < zrtpChannelContext->hashLength; i++)
+	{
+		kChar[i] = (unsigned char)k[i];
+	}
+
+	switch (zrtpChannelContext->hashAlgo) 
+	{
+		case ZRTP_HASH_S256 :
+			md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+			break;
+		case ZRTP_HASH_S384 :
+			md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA384);
+			break;
+		case ZRTP_UNSET_ALGO :
+			md_info = NULL;
+			break;
+		default :
+			return ZRTP_CRYPTOAGREEMENT_INVALIDHASH;
+			break;
+	}
+
+	memcpy(publicKeyDH, dhPart2Message->pv, zrtpChannelContext->keyAgreementLength);
+	publicKeyDH += zrtpChannelContext->keyAgreementLength;
+	memcpy(publicKeyDH, dhPart1Message->pv, zrtpChannelContext->keyAgreementLength);
+	publicKeyDH -= zrtpChannelContext->keyAgreementLength;
+
+	for (int i = 0; i < 2 * zrtpChannelContext->keyAgreementLength; i++)
+	{
+		publicKeyChar[i] = (unsigned char)publicKeyDH[i];
+	}
+
+	retval = mbedtls_hkdf_expand(md_info, (const unsigned char *) kChar, zrtpChannelContext->hashLength, (const unsigned char *) publicKeyChar, 2 * zrtpChannelContext->keyAgreementLength, (unsigned char *)kPrimeChar, COMBINESECRETLENGTH);
+
+	if (retval)
+	{
+		return retval;
+	}
+
+	for (int i = 0; i < COMBINESECRETLENGTH; i++)
+	{
+		kPrime[i] = (uint8_t)kPrimeChar[i];
+	}
+
+	zrtpChannelContext->hmacFunction(kPrime, COMBINESECRETLENGTH, (const uint8_t *) zrtpChannelContext->kyberSecret, PQCLEAN_KYBER1024_CLEAN_CRYPTO_BYTES, zrtpChannelContext->hashLength, kd);
+
+	for (int i = 0; i < zrtpChannelContext->hashLength; i++)
+	{
+		kdChar[i] = (char)kd[i];
+	}
+
+	memcpy(ctxtPublicKeyDH, zrtpChannelContext->kyberCipher, PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES);
+	ctxtPublicKeyDH += PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES;
+	memcpy(ctxtPublicKeyDH, publicKeyDH, 2 * zrtpChannelContext->keyAgreementLength);
+	ctxtPublicKeyDH -= PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES;
+
+	for (int i = 0; i < PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES + 2 * zrtpChannelContext->keyAgreementLength; i++)
+	{
+		ctxtPublicKeyDHChar[i] = (unsigned char)ctxtPublicKeyDH[i];
+	}
+
+	retval = mbedtls_hkdf_expand(md_info, (const unsigned char *) kdChar, zrtpChannelContext->hashLength, (const unsigned char *) ctxtPublicKeyDHChar, PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES + 2 * zrtpChannelContext->keyAgreementLength, combineKChar, COMBINESECRETLENGTH);
+
+	if (retval)
+	{
+		return retval;
+	}
+
+	for (int i = 0; i < COMBINESECRETLENGTH; i++)
+	{
+		combineK[i] = (uint8_t)combineKChar[i];
+	}
+
+	zrtpChannelContext->combineSecretKey = (uint8_t *)malloc(COMBINESECRETLENGTH * sizeof(uint8_t));
+	memcpy(zrtpChannelContext->combineSecretKey, combineK, COMBINESECRETLENGTH);
+
+	free(k);
+	free(kChar);
+	free(kPrime);
+	free(kPrimeChar);
+	free(kd);
+	free(kdChar);
+	free(combineK);
+	free(combineKChar);
+	free(publicKeyDH);
+	free(publicKeyChar);
+	free(ctxtPublicKeyDH);
+	free(ctxtPublicKeyDHChar);
+
+	return retval;
 }
 
 /**

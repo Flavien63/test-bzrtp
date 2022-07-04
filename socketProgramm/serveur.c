@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 	struct sockaddr_storage recep;
 	char buf[1500], renvoi[1500], host[1024],service[20], buffer[200], texte[200];
 	s_ecoute=socket(AF_INET,SOCK_STREAM,0);
-	printf("creation socket\n");
+	printf("Pour le menu, pour effectuer l'action que vous désirez, appuyez sur le numéro que vous souhaitez puis appuyez sur entrée. Toute autre action fermera l'application.\n");
 
 	adr.sin_family=AF_INET;
 	adr.sin_port=htons(atoi(argv[1]));

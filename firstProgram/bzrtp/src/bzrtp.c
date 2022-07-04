@@ -1149,6 +1149,11 @@ static int bzrtp_initChannelContext(bzrtpContext_t *zrtpContext, bzrtpChannelCon
 	zrtpChannelContext->mackeyr = NULL;
 	zrtpChannelContext->zrtpkeyi = NULL;
 	zrtpChannelContext->zrtpkeyr = NULL;
+	zrtpChannelContext->kyberCipher = NULL;
+	zrtpChannelContext->kyberSecret = NULL;
+	zrtpChannelContext->kyberPublicKey = NULL;
+	zrtpChannelContext->kyberPrivateKey = NULL;
+	zrtpChannelContext->combineSecretKey = NULL;
 
 	/* initialise srtpSecrets structure */
 	zrtpChannelContext->srtpSecrets.selfSrtpKey = NULL;
@@ -1221,6 +1226,11 @@ static void bzrtp_destroyChannelContext(bzrtpContext_t *zrtpContext, bzrtpChanne
 	free(zrtpChannelContext->mackeyr);
 	free(zrtpChannelContext->zrtpkeyi);
 	free(zrtpChannelContext->zrtpkeyr);
+	free(zrtpChannelContext->kyberCipher);
+	free(zrtpChannelContext->kyberSecret);
+	free(zrtpChannelContext->kyberPublicKey);
+	free(zrtpChannelContext->kyberPrivateKey);
+	free(zrtpChannelContext->combineSecretKey);
 
 	zrtpChannelContext->s0=NULL;
 	zrtpChannelContext->KDFContext=NULL;
@@ -1228,6 +1238,11 @@ static void bzrtp_destroyChannelContext(bzrtpContext_t *zrtpContext, bzrtpChanne
 	zrtpChannelContext->mackeyr=NULL;
 	zrtpChannelContext->zrtpkeyi=NULL;
 	zrtpChannelContext->zrtpkeyr=NULL;
+	zrtpChannelContext->kyberCipher = NULL;
+	zrtpChannelContext->kyberSecret = NULL;
+	zrtpChannelContext->kyberPublicKey = NULL;
+	zrtpChannelContext->kyberPrivateKey = NULL;
+	zrtpChannelContext->combineSecretKey = NULL;
 
 	/* free the allocated buffers */
 	for (i=0; i<PACKET_STORAGE_CAPACITY; i++) {

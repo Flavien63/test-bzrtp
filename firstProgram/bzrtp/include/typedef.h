@@ -31,6 +31,8 @@
 #define DHPART_MESSAGE_STORE_ID 2
 #define CONFIRM_MESSAGE_STORE_ID 3
 
+#define MAX_NAME_LENGTH 100
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -184,6 +186,11 @@ struct bzrtpChannelContext_struct {
 	uint8_t *mackeyr; /**< the responder mackey as defined in rfc section 4.5.3 - have a length of hashLength*/
 	uint8_t *zrtpkeyi; /**< the initiator mackey as defined in rfc section 4.5.3 - have a length of cipherKeyLength */
 	uint8_t *zrtpkeyr; /**< the responder mackey as defined in rfc section 4.5.3 - have a length of cipherKeyLength*/
+	uint8_t *kyberCipher; /**< the cipher text shared by both correspondant with Kyber 1024 Algorithm - have a length of PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES*/
+	uint8_t *kyberSecret; /**< the secret shared by both correspondant with Kyber 1024 Algorithm - have a length of PQCLEAN_KYBER1024_CLEAN_CRYPTO_BYTES*/
+	uint8_t *kyberPublicKey; /**< the public key of the Initiator - have a length of PQCLEAN_KYBER1024_CLEAN_CRYPTO_PUBLICBYTES*/
+	uint8_t *kyberPrivateKey; /**< the private key of the Initiator - have a length of PQCLEAN_KYBER1024_CLEAN_CRYPTO_PRIVATEBYTES*/
+	uint8_t *combineSecretKey; /**< the secret obtain by the combination between kyber secret and DH secret - have a length of COMBINESECRETLENGTH*/
 	bzrtpSrtpSecrets_t srtpSecrets; /**< the secrets keys and salt needed by SRTP */
 
 	/* shared secret hash : unlike pbx, rs1 and rs2 secret hash, the auxsecret hash use a channel dependent data (H3) and is then stored in the channel context */
@@ -240,8 +247,10 @@ struct bzrtpContext_struct {
 	int zuid; /**< internal id used to address zid cache SIP/ZID pair binding **/
 	char *selfURI; /**< a null terminated string storing the local user URI **/
 	uint8_t selfZID[12]; /**< The ZRTP Identifier of this ZRTP end point - a random if running cache less */
+	//char *selfName[MAX_NAME_LENGTH]; /**< the name of this ZRTP end point */
 	char *peerURI; /**< a null terminated string storing the peer user URI **/
 	uint8_t peerZID[12]; /**< The ZRTP Identifier of the peer ZRTP end point - given by the Hello packet */
+	//char *peerName[MAX_NAME_LENGTH]; /**< the name of the peer ZRTP end point - given by the Hello packet */
 	uint32_t peerBzrtpVersion; /**< The Bzrtp library version used by peer, retrieved from the peer Hello packet Client identifier and used for backward compatibility in exported key computation */
 	cachedSecrets_t cachedSecret; /**< the local cached secrets */
 	cachedSecretsHash_t initiatorCachedSecretHash; /**< The hash of cached secret from initiator side, computed as described in rfc section 4.3.1 */

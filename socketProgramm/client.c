@@ -29,16 +29,16 @@ int main(int argc, char *argv[])
 	sock= socket(AF_INET,SOCK_STREAM,0);
 	if (connect(sock, (struct sockaddr *)&addr,sizeof(struct sockaddr_in)) < 0) 
 	{
-		printf("probleme connexion\n");
+		printf("L'autre personne n'est pas prête à être appelée.\n");
 		exit(1); 
 	}
-	printf("connexion passe\n");
+	printf("Pour le menu, pour effectuer l'action que vous désirez, appuyez sur le numéro que vous souhaitez puis appuyez sur entrée. Toute autre action fermera l'application.\n");
 	while (1) 
 	{
 		bzero(texte,sizeof(texte));
 		bzero(buffer,sizeof(buffer));
 		i = 0;
-		printf("Entrez une ligne de texte : \n");
+		printf("Entrez une ligne de texte : (Entrez FIN pour mettre fin à l'appel)\n");
 		while((c=getchar()) != '\n')
 			texte[i++]=c;
 		send(sock,texte,strlen(texte)+1,0);
