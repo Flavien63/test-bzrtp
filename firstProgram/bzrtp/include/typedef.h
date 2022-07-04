@@ -39,7 +39,6 @@
 
 #include <stdint.h>
 
-
 #ifdef ZIDCACHE_ENABLED
 #include "sqlite3.h"
 #endif /* ZIDCACHE_ENABLED */

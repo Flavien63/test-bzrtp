@@ -296,7 +296,19 @@ ENABLE_STRICT:BOOL=OFF
 ENABLE_TESTS:BOOL=OFF
 
 //Turn on compilation of ZID cache, request sqlite
-ENABLE_ZIDCACHE:BOOL=OFF
+ENABLE_ZIDCACHE:BOOL=ON
+
+//Path to a file.
+SQLITE3_INCLUDE_DIRS:PATH=/usr/include
+
+//Path to a library.
+SQLITE3_LIBRARIES:FILEPATH=/usr/lib/x86_64-linux-gnu/libsqlite3.so
+
+//Path to a file.
+XML2_INCLUDE_DIRS:PATH=XML2_INCLUDE_DIRS-NOTFOUND
+
+//Path to a library.
+XML2_LIBRARIES:FILEPATH=XML2_LIBRARIES-NOTFOUND
 
 //Value Computed by CMake
 bzrtp_BINARY_DIR:STATIC=/home/flavien/test-bzrtp/firstProgram/bzrtp
@@ -484,8 +496,18 @@ CMAKE_STRIP-ADVANCED:INTERNAL=1
 CMAKE_UNAME:INTERNAL=/usr/bin/uname
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//Details about finding Sqlite3
+FIND_PACKAGE_MESSAGE_DETAILS_Sqlite3:INTERNAL=[/usr/include][/usr/lib/x86_64-linux-gnu/libsqlite3.so][1][v()]
 //Have library m
 HAVE_SQRT:INTERNAL=1
+//ADVANCED property for variable: SQLITE3_INCLUDE_DIRS
+SQLITE3_INCLUDE_DIRS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: SQLITE3_LIBRARIES
+SQLITE3_LIBRARIES-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: XML2_INCLUDE_DIRS
+XML2_INCLUDE_DIRS-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: XML2_LIBRARIES
+XML2_LIBRARIES-ADVANCED:INTERNAL=1
 //CMAKE_INSTALL_PREFIX during last run
 _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local
 
