@@ -9,11 +9,11 @@ This project is an internship subject within Orange Labs. Initially, the objecti
 Dependencies
 ------------
 
-- *bctoolbox[1]*: portability layer and crypto function abstraction
-- *bzrtp[2]*: open source implementation of ZRTP keys exchange protocol
-- *mbedtls[3]*: library that implements cryptographic primitives, X.509 certificate manipulation and the SSL/TLS and DTLS protocols
-- *dilithium[4]*: library that implements the dilithium algorithm by PQClean and validated by NIST. Used for SAS signature
-- *kyber[5]*: library that implements the kyber algorithm by PQClean and validated by NIST. Used for post-quantum secret exchange during the Diffie-Hellman exchange
+- *bctoolbox[1]*: portability layer and crypto function abstraction. The latest version up-to-date
+- *bzrtp[2]*: open source implementation of ZRTP keys exchange protocol. The latest version up-to-date
+- *mbedtls[3]*: library that implements cryptographic primitives, X.509 certificate manipulation and the SSL/TLS and DTLS protocols. The 2.28.0 version
+- *dilithium[4]*: library that implements the dilithium algorithm by PQClean and validated by NIST. Used for SAS signature. The latest version up-to-date
+- *kyber[5]*: library that implements the kyber algorithm by PQClean and validated by NIST. Used for post-quantum secret exchange during the Diffie-Hellman exchange. The latest version up-to-date
 
 Directories
 ------------
@@ -77,3 +77,11 @@ testKyber
     make
     ./prog ou valgrind ./prog
 
+Libraries link
+-----------
+
+* [1] https://github.com/BelledonneCommunications/bctoolbox
+* [2] https://github.com/BelledonneCommunications/bzrtp
+* [3] https://github.com/Mbed-TLS/mbedtls/releases/tag/v2.28.0
+* [4] https://github.com/PQClean/PQClean/tree/master/crypto_sign/dilithium5
+* [5] https://github.com/PQClean/PQClean/tree/master/crypto_kem/kyber1024
