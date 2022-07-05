@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "bzrtp/include/bzrtp/bzrtp.h"
-#include "bzrtp/include/cryptoUtils.h"
-#include "bzrtp/include/packetParser.h"
-#include "bzrtp/include/stateMachine.h"
-#include "bzrtp/include/typedef.h"
-#include "bzrtp/include/zidCache.h"
+#include "../bzrtp/include/bzrtp/bzrtp.h"
+#include "../bzrtp/include/cryptoUtils.h"
+#include "../bzrtp/include/packetParser.h"
+#include "../bzrtp/include/stateMachine.h"
+#include "../bzrtp/include/typedef.h"
+#include "../bzrtp/include/zidCache.h"
 #include <string.h>
 
 #define ERROR_CREATE_CONTEXT 0x01
