@@ -1,8 +1,10 @@
-Anroid applicaton development project
+Development of a post-quantum mobile application
 =====
 
 What is this project ?
 ------------
+
+This project is an internship subject within Orange Labs. 
 
 Dependencies
 ------------
@@ -70,3 +72,4 @@ testKyber
 
     make
     ./prog ou valgrind ./prog
+
