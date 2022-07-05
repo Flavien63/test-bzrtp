@@ -18,6 +18,7 @@ Dependencies
 Directories
 ------------
 
+- *bzrtp*: Directory of the modified library bzrtp. Include the SAS signature and the post-quantum secret exchange
 - *simpleExchange*: Directory where we can make an exchange between two correspondants. Sas signature is implemented with dilithium. Post-quantum secret exchange is implemented with Kyber. To compile, we need bzrtp to be compiled
 - *socketProgramm*: Directory where we can make an exchange between a server and a client. We can only now exchange string
 - *testDilithium*: Directory where we tested the Dilithium signature algorithm
