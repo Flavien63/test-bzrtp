@@ -25,43 +25,48 @@ Directories
 Build 
 ------------
 
-### FirstProgramm
+FirstProgramm
+-----------
 
-* cd firstProgramm
-* cd mbedtls
-* cmake .
-* make
-* sudo make install
-* cd ../
-* cd bctoolbox
-* cmake .
-* make
-* sudo make install
-* cd ../
-* cd bzrtp
-* ./autogen.sh && ./configure && make && sudo make install
-* cd ../
-* make
-* ./prog ou valgrind ./prog
+    cd firstProgramm
+    cd mbedtls
+    cmake .
+    make
+    sudo make install
+    cd ../
+    cd bctoolbox
+    cmake .
+    make
+    sudo make install
+    cd ../
+    cd bzrtp
+    ./autogen.sh && ./configure && make && sudo make install
+    cd ../
+    make
+    ./prog ou valgrind ./prog
 
-### SocketProgramm
+SocketProgramm
+-----------
 
-* clang serveur.c -o Alice -Wall -Wextra -g
-* clang client.c -o Bob -Wall -Wextra -g
-* ./serveur {Port number}
-* ./client localhost {Port number}
+    clang serveur.c -o Alice -Wall -Wextra -g
+    clang client.c -o Bob -Wall -Wextra -g
+    ./serveur {Port number}
+    ./client localhost {Port number}
 
-### testDilithium
+testDilithium
+-----------
 
-* make
-* ./prog ou valgrind ./prog
+    make
+    ./prog ou valgrind ./prog
 
-### testEcdsa
+testEcdsa
+-----------
 
-* make
-* ./prog ou valgrind ./prog
+    make
+    ./prog ou valgrind ./prog
 
-### testKyber
+testKyber
+-----------
 
-* make
-* ./prog ou valgrind ./prog
+    make
+    ./prog ou valgrind ./prog
