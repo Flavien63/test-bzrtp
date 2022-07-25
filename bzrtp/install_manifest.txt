@@ -1,0 +1,7 @@
+/usr/local/share/bzrtp/cmake/bzrtpTargets.cmake
+/usr/local/share/bzrtp/cmake/bzrtpTargets-noconfig.cmake
+/usr/local/share/bzrtp/cmake/bzrtpConfig.cmake
+/usr/local/share/bzrtp/cmake/bzrtpConfigVersion.cmake
+/usr/local/include/bzrtp/bzrtp.h
+/usr/local/lib/libbzrtp.so.0
+/usr/local/lib/libbzrtp.so

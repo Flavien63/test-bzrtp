@@ -21,7 +21,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_reduce(poly *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         a->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_reduce32(a->coeffs[i]);
     }
 
@@ -40,7 +40,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_caddq(poly *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         a->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_caddq(a->coeffs[i]);
     }
 
@@ -60,7 +60,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_add(poly *c, const poly *a, const poly *b)  {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         c->coeffs[i] = a->coeffs[i] + b->coeffs[i];
     }
 
@@ -82,7 +82,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_sub(poly *c, const poly *a, const poly *b) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         c->coeffs[i] = a->coeffs[i] - b->coeffs[i];
     }
 
@@ -101,8 +101,8 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_shiftl(poly *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
-        a->coeffs[i] <<= D;
+    for (i = 0; i < N_DILITHIUM; ++i) {
+        a->coeffs[i] <<= DI;
     }
 
     DBENCH_STOP(*tmul);
@@ -156,7 +156,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_pointwise_montgomery(poly *c, const poly *a, 
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         c->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_montgomery_reduce((int64_t)a->coeffs[i] * b->coeffs[i]);
     }
 
@@ -179,7 +179,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_power2round(poly *a1, poly *a0, const poly *a
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         a1->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_power2round(&a0->coeffs[i], a->coeffs[i]);
     }
 
@@ -203,7 +203,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_decompose(poly *a1, poly *a0, const poly *a) 
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         a1->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_decompose(&a0->coeffs[i], a->coeffs[i]);
     }
 
@@ -227,7 +227,7 @@ unsigned int PQCLEAN_DILITHIUM5_CLEAN_poly_make_hint(poly *h, const poly *a0, co
     unsigned int i, s = 0;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         h->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_make_hint(a0->coeffs[i], a1->coeffs[i]);
         s += h->coeffs[i];
     }
@@ -249,7 +249,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_use_hint(poly *b, const poly *a, const poly *
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         b->coeffs[i] = PQCLEAN_DILITHIUM5_CLEAN_use_hint(a->coeffs[i], h->coeffs[i]);
     }
 
@@ -279,7 +279,7 @@ int PQCLEAN_DILITHIUM5_CLEAN_poly_chknorm(const poly *a, int32_t B) {
     /* It is ok to leak which coefficient violates the bound since
        the probability for each coefficient is independent of secret
        data but we must not leak the sign of the centralized representative. */
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         /* Absolute value */
         t = a->coeffs[i] >> 31;
         t = a->coeffs[i] - (t & 2 * a->coeffs[i]);
@@ -355,9 +355,9 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_uniform(poly *a,
     stream128_init(&state, seed, nonce);
     stream128_squeezeblocks(buf, POLY_UNIFORM_NBLOCKS, &state);
 
-    ctr = rej_uniform(a->coeffs, N, buf, buflen);
+    ctr = rej_uniform(a->coeffs, N_DILITHIUM, buf, buflen);
 
-    while (ctr < N) {
+    while (ctr < N_DILITHIUM) {
         off = buflen % 3;
         for (i = 0; i < off; ++i) {
             buf[i] = buf[buflen - off + i];
@@ -365,7 +365,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_uniform(poly *a,
 
         stream128_squeezeblocks(buf + off, 1, &state);
         buflen = STREAM128_BLOCKBYTES + off;
-        ctr += rej_uniform(a->coeffs + ctr, N - ctr, buf, buflen);
+        ctr += rej_uniform(a->coeffs + ctr, N_DILITHIUM - ctr, buf, buflen);
     }
     stream128_release(&state);
 }
@@ -434,11 +434,11 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_uniform_eta(poly *a,
     stream256_init(&state, seed, nonce);
     stream256_squeezeblocks(buf, POLY_UNIFORM_ETA_NBLOCKS, &state);
 
-    ctr = rej_eta(a->coeffs, N, buf, buflen);
+    ctr = rej_eta(a->coeffs, N_DILITHIUM, buf, buflen);
 
-    while (ctr < N) {
+    while (ctr < N_DILITHIUM) {
         stream256_squeezeblocks(buf, 1, &state);
-        ctr += rej_eta(a->coeffs + ctr, N - ctr, buf, STREAM256_BLOCKBYTES);
+        ctr += rej_eta(a->coeffs + ctr, N_DILITHIUM - ctr, buf, STREAM256_BLOCKBYTES);
     }
     stream256_release(&state);
 }
@@ -494,10 +494,10 @@ void PQCLEAN_DILITHIUM5_CLEAN_poly_challenge(poly *c, const uint8_t seed[SEEDBYT
     }
     pos = 8;
 
-    for (i = 0; i < N; ++i) {
+    for (i = 0; i < N_DILITHIUM; ++i) {
         c->coeffs[i] = 0;
     }
-    for (i = N - TAU; i < N; ++i) {
+    for (i = N_DILITHIUM - TAU; i < N_DILITHIUM; ++i) {
         do {
             if (pos >= SHAKE256_RATE) {
                 shake256_inc_squeeze(buf, sizeof buf, &state);
@@ -528,7 +528,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyeta_pack(uint8_t *r, const poly *a) {
     uint8_t t[8];
     DBENCH_START();
 
-    for (i = 0; i < N / 8; ++i) {
+    for (i = 0; i < N_DILITHIUM / 8; ++i) {
         t[0] = (uint8_t) (ETA - a->coeffs[8 * i + 0]);
         t[1] = (uint8_t) (ETA - a->coeffs[8 * i + 1]);
         t[2] = (uint8_t) (ETA - a->coeffs[8 * i + 2]);
@@ -558,7 +558,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyeta_unpack(poly *r, const uint8_t *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 8; ++i) {
+    for (i = 0; i < N_DILITHIUM / 8; ++i) {
         r->coeffs[8 * i + 0] =  (a[3 * i + 0] >> 0) & 7;
         r->coeffs[8 * i + 1] =  (a[3 * i + 0] >> 3) & 7;
         r->coeffs[8 * i + 2] = ((a[3 * i + 0] >> 6) | (a[3 * i + 1] << 2)) & 7;
@@ -595,7 +595,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyt1_pack(uint8_t *r, const poly *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 4; ++i) {
+    for (i = 0; i < N_DILITHIUM / 4; ++i) {
         r[5 * i + 0] = (uint8_t) (a->coeffs[4 * i + 0] >> 0);
         r[5 * i + 1] = (uint8_t) ((a->coeffs[4 * i + 0] >> 8) | (a->coeffs[4 * i + 1] << 2));
         r[5 * i + 2] = (uint8_t) ((a->coeffs[4 * i + 1] >> 6) | (a->coeffs[4 * i + 2] << 4));
@@ -619,7 +619,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyt1_unpack(poly *r, const uint8_t *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 4; ++i) {
+    for (i = 0; i < N_DILITHIUM / 4; ++i) {
         r->coeffs[4 * i + 0] = ((a[5 * i + 0] >> 0) | ((uint32_t)a[5 * i + 1] << 8)) & 0x3FF;
         r->coeffs[4 * i + 1] = ((a[5 * i + 1] >> 2) | ((uint32_t)a[5 * i + 2] << 6)) & 0x3FF;
         r->coeffs[4 * i + 2] = ((a[5 * i + 2] >> 4) | ((uint32_t)a[5 * i + 3] << 4)) & 0x3FF;
@@ -643,15 +643,15 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyt0_pack(uint8_t *r, const poly *a) {
     uint32_t t[8];
     DBENCH_START();
 
-    for (i = 0; i < N / 8; ++i) {
-        t[0] = (1 << (D - 1)) - a->coeffs[8 * i + 0];
-        t[1] = (1 << (D - 1)) - a->coeffs[8 * i + 1];
-        t[2] = (1 << (D - 1)) - a->coeffs[8 * i + 2];
-        t[3] = (1 << (D - 1)) - a->coeffs[8 * i + 3];
-        t[4] = (1 << (D - 1)) - a->coeffs[8 * i + 4];
-        t[5] = (1 << (D - 1)) - a->coeffs[8 * i + 5];
-        t[6] = (1 << (D - 1)) - a->coeffs[8 * i + 6];
-        t[7] = (1 << (D - 1)) - a->coeffs[8 * i + 7];
+    for (i = 0; i < N_DILITHIUM / 8; ++i) {
+        t[0] = (1 << (DI - 1)) - a->coeffs[8 * i + 0];
+        t[1] = (1 << (DI - 1)) - a->coeffs[8 * i + 1];
+        t[2] = (1 << (DI - 1)) - a->coeffs[8 * i + 2];
+        t[3] = (1 << (DI - 1)) - a->coeffs[8 * i + 3];
+        t[4] = (1 << (DI - 1)) - a->coeffs[8 * i + 4];
+        t[5] = (1 << (DI - 1)) - a->coeffs[8 * i + 5];
+        t[6] = (1 << (DI - 1)) - a->coeffs[8 * i + 6];
+        t[7] = (1 << (DI - 1)) - a->coeffs[8 * i + 7];
 
         r[13 * i + 0]  =  (uint8_t) t[0];
         r[13 * i + 1]  =  (uint8_t) (t[0] >>  8);
@@ -690,7 +690,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyt0_unpack(poly *r, const uint8_t *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 8; ++i) {
+    for (i = 0; i < N_DILITHIUM / 8; ++i) {
         r->coeffs[8 * i + 0]  = a[13 * i + 0];
         r->coeffs[8 * i + 0] |= (uint32_t)a[13 * i + 1] << 8;
         r->coeffs[8 * i + 0] &= 0x1FFF;
@@ -727,14 +727,14 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyt0_unpack(poly *r, const uint8_t *a) {
         r->coeffs[8 * i + 7] |= (uint32_t)a[13 * i + 12] << 5;
         r->coeffs[8 * i + 7] &= 0x1FFF;
 
-        r->coeffs[8 * i + 0] = (1 << (D - 1)) - r->coeffs[8 * i + 0];
-        r->coeffs[8 * i + 1] = (1 << (D - 1)) - r->coeffs[8 * i + 1];
-        r->coeffs[8 * i + 2] = (1 << (D - 1)) - r->coeffs[8 * i + 2];
-        r->coeffs[8 * i + 3] = (1 << (D - 1)) - r->coeffs[8 * i + 3];
-        r->coeffs[8 * i + 4] = (1 << (D - 1)) - r->coeffs[8 * i + 4];
-        r->coeffs[8 * i + 5] = (1 << (D - 1)) - r->coeffs[8 * i + 5];
-        r->coeffs[8 * i + 6] = (1 << (D - 1)) - r->coeffs[8 * i + 6];
-        r->coeffs[8 * i + 7] = (1 << (D - 1)) - r->coeffs[8 * i + 7];
+        r->coeffs[8 * i + 0] = (1 << (DI - 1)) - r->coeffs[8 * i + 0];
+        r->coeffs[8 * i + 1] = (1 << (DI - 1)) - r->coeffs[8 * i + 1];
+        r->coeffs[8 * i + 2] = (1 << (DI - 1)) - r->coeffs[8 * i + 2];
+        r->coeffs[8 * i + 3] = (1 << (DI - 1)) - r->coeffs[8 * i + 3];
+        r->coeffs[8 * i + 4] = (1 << (DI - 1)) - r->coeffs[8 * i + 4];
+        r->coeffs[8 * i + 5] = (1 << (DI - 1)) - r->coeffs[8 * i + 5];
+        r->coeffs[8 * i + 6] = (1 << (DI - 1)) - r->coeffs[8 * i + 6];
+        r->coeffs[8 * i + 7] = (1 << (DI - 1)) - r->coeffs[8 * i + 7];
     }
 
     DBENCH_STOP(*tpack);
@@ -755,7 +755,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyz_pack(uint8_t *r, const poly *a) {
     uint32_t t[4];
     DBENCH_START();
 
-    for (i = 0; i < N / 2; ++i) {
+    for (i = 0; i < N_DILITHIUM / 2; ++i) {
         t[0] = GAMMA1 - a->coeffs[2 * i + 0];
         t[1] = GAMMA1 - a->coeffs[2 * i + 1];
 
@@ -783,7 +783,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyz_unpack(poly *r, const uint8_t *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 2; ++i) {
+    for (i = 0; i < N_DILITHIUM / 2; ++i) {
         r->coeffs[2 * i + 0]  = a[5 * i + 0];
         r->coeffs[2 * i + 0] |= (uint32_t)a[5 * i + 1] << 8;
         r->coeffs[2 * i + 0] |= (uint32_t)a[5 * i + 2] << 16;
@@ -815,7 +815,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_polyw1_pack(uint8_t *r, const poly *a) {
     unsigned int i;
     DBENCH_START();
 
-    for (i = 0; i < N / 2; ++i) {
+    for (i = 0; i < N_DILITHIUM / 2; ++i) {
         r[i] = (uint8_t) (a->coeffs[2 * i + 0] | (a->coeffs[2 * i + 1] << 4));
     }
 

@@ -1023,6 +1023,8 @@ int state_keyAgreement_initiatorSendingDHPart2(bzrtpEvent_t event) {
 			/* update context with the information found in the packet */
 			confirm1Packet = (bzrtpConfirmMessage_t *)zrtpPacket->messageData;
 
+			//Ajouter test de si sig_len = 0 pour faire calcul non nécessaire.
+
 			/* malloc signature block for receiving the signature */
 			uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
 
@@ -1186,7 +1188,7 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 		
 		/* malloc the signature block to initialize it and put the good length */
 		uint8_t * signature = (uint8_t *)malloc(PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES * sizeof(uint8_t));
-		confirm1Message->sig_len = (PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES) / 4 + 2; // Mettre en mot(voir spécification) + 1 mot
+		confirm1Message->sig_len = (PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_BYTES + PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES) / 4 + 2; //Variable globale de ce résultat en indiquant la nature de l'opération
 		size_t signatureLength = 0;
 
 		/* calculating the signature of the sas */
@@ -1201,7 +1203,7 @@ int state_confirmation_responderSendingConfirm1(bzrtpEvent_t event) {
 		confirm1Message->signatureBlock = (uint8_t *)malloc((confirm1Message->sig_len * 4 - 1)*sizeof(uint8_t));
 
 		/* Initialize and copy the signature and the public key */
-		for (int i = 0; i < confirm1Message->sig_len * 4 - 1; i++)
+		for (int i = 0; i < (confirm1Message->sig_len - 1)* 4; i++)
 		{
 			confirm1Message->signatureBlock[i] = 0;
 		}
@@ -2327,7 +2329,7 @@ int bzrtp_combineKyberAndDhSecret(bzrtpContext_t *zrtpContext, bzrtpChannelConte
 
 	for (int i = 0; i < zrtpChannelContext->hashLength; i++)
 	{
-		kdChar[i] = (char)kd[i];
+		kdChar[i] = (unsigned char)kd[i];
 	}
 
 	memcpy(ctxtPublicKeyDH, zrtpChannelContext->kyberCipher, PQCLEAN_KYBER1024_CLEAN_CRYPTO_CIPHERTEXTBYTES);

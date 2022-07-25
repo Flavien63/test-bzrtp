@@ -10,6 +10,7 @@
 #include "../bzrtp/include/stateMachine.h"
 #include "../bzrtp/include/typedef.h"
 #include "../bzrtp/include/zidCache.h"
+#include "sqlite3.h"
 #include <string.h>
 
 #define ERROR_CREATE_CONTEXT 0x01

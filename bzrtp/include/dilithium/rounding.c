@@ -17,8 +17,8 @@
 int32_t PQCLEAN_DILITHIUM5_CLEAN_power2round(int32_t *a0, int32_t a)  {
     int32_t a1;
 
-    a1 = (a + (1 << (D - 1)) - 1) >> D;
-    *a0 = a - (a1 << D);
+    a1 = (a + (1 << (DI - 1)) - 1) >> DI;
+    *a0 = a - (a1 << DI);
     return a1;
 }
 

@@ -39,9 +39,9 @@
 
 #include <stdint.h>
 
-#ifdef ZIDCACHE_ENABLED
+// #ifdef ZIDCACHE_ENABLED
 #include "sqlite3.h"
-#endif /* ZIDCACHE_ENABLED */
+// #endif /* ZIDCACHE_ENABLED */
 
 typedef struct bzrtpChannelContext_struct bzrtpChannelContext_t;
 
@@ -237,11 +237,11 @@ struct bzrtpContext_struct {
 	uint8_t supportedSas[7]; /**< list of supported Sas representations mapped to uint8_t */
 
 	/* ZIDs and cache */
-#ifdef ZIDCACHE_ENABLED
+// #ifdef ZIDCACHE_ENABLED
 	sqlite3 *zidCache; /**< an sqlite3 db pointer to the zid cache **/
-#else
-	void *zidCache; /**< an empty pointer always set to NULL when cache is disabled **/
-#endif /* ZIDCACHE_ENABLED */
+// #else
+// 	void *zidCache; /**< an empty pointer always set to NULL when cache is disabled **/
+// #endif /* ZIDCACHE_ENABLED */
 	bctbx_mutex_t *zidCacheMutex; /**< lock access to the cache if provided **/
 	int zuid; /**< internal id used to address zid cache SIP/ZID pair binding **/
 	char *selfURI; /**< a null terminated string storing the local user URI **/

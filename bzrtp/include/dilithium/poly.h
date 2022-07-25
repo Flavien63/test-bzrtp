@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct {
-    int32_t coeffs[N];
+    int32_t coeffs[N_DILITHIUM];
 } poly;
 
 void PQCLEAN_DILITHIUM5_CLEAN_poly_reduce(poly *a);

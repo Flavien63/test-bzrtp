@@ -121,7 +121,7 @@ bzrtpContext_t *bzrtp_createBzrtpContext(void) {
  * @return 0 or BZRTP_CACHE_SETUP(if cache is populated by this call) on success, error code otherwise
 */
 int bzrtp_setZIDCache(bzrtpContext_t *context, void *zidCache, const char *selfURI, const char *peerURI) {
-#ifdef ZIDCACHE_ENABLED
+// #ifdef ZIDCACHE_ENABLED
 	/* is zrtp context valid */
 	if (context==NULL) {
 		return BZRTP_ERROR_INVALIDCONTEXT;
@@ -141,9 +141,9 @@ int bzrtp_setZIDCache(bzrtpContext_t *context, void *zidCache, const char *selfU
 
 	/* and init the cache(create needed tables if they don't exist) */
 	return bzrtp_initCache_lock(context->zidCache, context->zidCacheMutex);
-#else /* ZIDCACHE_ENABLED */
-	return BZRTP_ERROR_CACHEDISABLED;
-#endif /* ZIDCACHE_ENABLED */
+// #else /* ZIDCACHE_ENABLED */
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// #endif /* ZIDCACHE_ENABLED */
 }
 
 /**
@@ -159,7 +159,7 @@ int bzrtp_setZIDCache(bzrtpContext_t *context, void *zidCache, const char *selfU
  * @return 0 or BZRTP_CACHE_SETUP(if cache is populated by this call) on success, error code otherwise
 */
 int bzrtp_setZIDCache_lock(bzrtpContext_t *context, void *zidCache, const char *selfURI, const char *peerURI, bctbx_mutex_t *zidCacheMutex) {
-#ifdef ZIDCACHE_ENABLED
+// #ifdef ZIDCACHE_ENABLED
 	/* is zrtp context valid */
 	if (context==NULL) {
 		return BZRTP_ERROR_INVALIDCONTEXT;
@@ -169,9 +169,9 @@ int bzrtp_setZIDCache_lock(bzrtpContext_t *context, void *zidCache, const char *
 
 	/* have the non lockable function finish the job */
 	return  bzrtp_setZIDCache(context, zidCache, selfURI, peerURI);
-#else /* ZIDCACHE_ENABLED */
-	return BZRTP_ERROR_CACHEDISABLED;
-#endif /* ZIDCACHE_ENABLED */
+// #else /* ZIDCACHE_ENABLED */
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// #endif /* ZIDCACHE_ENABLED */
 }
 
 void bzrtp_resetBzrtpContext(bzrtpContext_t *context) {

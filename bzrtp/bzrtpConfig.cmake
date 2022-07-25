@@ -51,7 +51,7 @@ set(BZRTP_TARGETNAME bzrtp)
 
 include("${CMAKE_CURRENT_LIST_DIR}/${BZRTP_TARGETNAME}Targets.cmake")
 
-if(OFF)
+if(ON)
 	set(BZRTP_LIBRARIES ${BZRTP_TARGETNAME})
 else()
 	if(TARGET ${BZRTP_TARGETNAME})

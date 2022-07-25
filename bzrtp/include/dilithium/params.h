@@ -5,7 +5,7 @@
 
 #define SEEDBYTES 32
 #define CRHBYTES 64
-#define N 256
+#define N_DILITHIUM 256
 #define Q 8380417
 #define DI 13
 #define ROOT_OF_UNITY 1753

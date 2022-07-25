@@ -1,4 +1,4 @@
-# Install script for directory: /home/flavien/test-bzrtp/firstProgram/bzrtp
+# Install script for directory: /home/flavien/test-bzrtp/bzrtp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -38,16 +38,35 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake/bzrtpTargets.cmake")
+    file(DIFFERENT EXPORT_FILE_CHANGED FILES
+         "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake/bzrtpTargets.cmake"
+         "/home/flavien/test-bzrtp/bzrtp/CMakeFiles/Export/share/bzrtp/cmake/bzrtpTargets.cmake")
+    if(EXPORT_FILE_CHANGED)
+      file(GLOB OLD_CONFIG_FILES "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake/bzrtpTargets-*.cmake")
+      if(OLD_CONFIG_FILES)
+        message(STATUS "Old export file \"$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake/bzrtpTargets.cmake\" will be replaced.  Removing files [${OLD_CONFIG_FILES}].")
+        file(REMOVE ${OLD_CONFIG_FILES})
+      endif()
+    endif()
+  endif()
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake" TYPE FILE FILES "/home/flavien/test-bzrtp/bzrtp/CMakeFiles/Export/share/bzrtp/cmake/bzrtpTargets.cmake")
+  if("${CMAKE_INSTALL_CONFIG_NAME}" MATCHES "^()$")
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake" TYPE FILE FILES "/home/flavien/test-bzrtp/bzrtp/CMakeFiles/Export/share/bzrtp/cmake/bzrtpTargets-noconfig.cmake")
+  endif()
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/bzrtp/cmake" TYPE FILE FILES
-    "/home/flavien/test-bzrtp/firstProgram/bzrtp/bzrtpConfig.cmake"
-    "/home/flavien/test-bzrtp/firstProgram/bzrtp/bzrtpConfigVersion.cmake"
+    "/home/flavien/test-bzrtp/bzrtp/bzrtpConfig.cmake"
+    "/home/flavien/test-bzrtp/bzrtp/bzrtpConfigVersion.cmake"
     )
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/flavien/test-bzrtp/firstProgram/bzrtp/include/cmake_install.cmake")
-  include("/home/flavien/test-bzrtp/firstProgram/bzrtp/src/cmake_install.cmake")
+  include("/home/flavien/test-bzrtp/bzrtp/include/cmake_install.cmake")
+  include("/home/flavien/test-bzrtp/bzrtp/src/cmake_install.cmake")
 
 endif()
 
@@ -59,5 +78,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/flavien/test-bzrtp/firstProgram/bzrtp/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/flavien/test-bzrtp/bzrtp/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

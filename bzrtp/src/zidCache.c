@@ -23,7 +23,7 @@
 #include "cryptoUtils.h"
 #include "zidCache.h"
 
-#ifdef ZIDCACHE_ENABLED
+// #ifdef ZIDCACHE_ENABLED
 #include "sqlite3.h"
 #ifdef HAVE_LIBXML2
 #include <libxml/tree.h>
@@ -199,8 +199,11 @@ static int bzrtp_initCache_impl(void *dbPointer) {
 							"aux		BLOB DEFAULT NULL,"
 							"pbx		BLOB DEFAULT NULL,"
 							"pvs		BLOB DEFAULT NULL,"
+							"zid		BLOB NOT NULL DEFAULT '000000000000',"
+							"publicKey	BLOB DEFAULT NULL,"
+							"privateKey BLOB DEFAULT NULL,"
+							"peerPublicKey BLOB DEFAULT NULL,"
 							"FOREIGN KEY(zuid) REFERENCES ziduri(zuid) ON UPDATE CASCADE ON DELETE CASCADE"
-
 						");",
 			0,0,&errmsg);
 	if(ret != SQLITE_OK) {
@@ -1235,76 +1238,76 @@ int bzrtp_cache_getPeerStatus_lock(void *dbPointer, const char *peerURI, bctbx_m
 	return retval;
 }
 
-#else /* ZIDCACHE_ENABLED */
+// #else /* ZIDCACHE_ENABLED */
 
-static int bzrtp_getSelfZID_impl(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext) {
-	/* we are running cacheless, return a random number */
-	if (RNGContext != NULL) {
-		bctbx_rng_get(RNGContext, selfZID, 12);
-	} else {
-		return BZRTP_CACHE_DATA_NOTFOUND;
-	}
-	return 0; 
-}
-int bzrtp_getSelfZID(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext) {
-	return bzrtp_getSelfZID_impl(dbPointer, selfURI, selfZID, RNGContext);
-}
-int bzrtp_getSelfZID_lock(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext, bctbx_mutex_t *zidCacheMutex) {
-	return bzrtp_getSelfZID_impl(dbPointer, selfURI, selfZID, RNGContext);
-}
+// static int bzrtp_getSelfZID_impl(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext) {
+// 	/* we are running cacheless, return a random number */
+// 	if (RNGContext != NULL) {
+// 		bctbx_rng_get(RNGContext, selfZID, 12);
+// 	} else {
+// 		return BZRTP_CACHE_DATA_NOTFOUND;
+// 	}
+// 	return 0; 
+// }
+// int bzrtp_getSelfZID(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext) {
+// 	return bzrtp_getSelfZID_impl(dbPointer, selfURI, selfZID, RNGContext);
+// }
+// int bzrtp_getSelfZID_lock(void *dbPointer, const char *selfURI, uint8_t selfZID[12], bctbx_rng_context_t *RNGContext, bctbx_mutex_t *zidCacheMutex) {
+// 	return bzrtp_getSelfZID_impl(dbPointer, selfURI, selfZID, RNGContext);
+// }
 
-int bzrtp_getPeerAssociatedSecrets(bzrtpContext_t *context, uint8_t peerZID[12]) {
-		if (context == NULL) {
-		return BZRTP_ZIDCACHE_INVALID_CONTEXT;
-	}
+// int bzrtp_getPeerAssociatedSecrets(bzrtpContext_t *context, uint8_t peerZID[12]) {
+// 		if (context == NULL) {
+// 		return BZRTP_ZIDCACHE_INVALID_CONTEXT;
+// 	}
 
-	/* resert cached secret buffer */
-	free(context->cachedSecret.rs1);
-	free(context->cachedSecret.rs2);
-	free(context->cachedSecret.pbxsecret);
-	free(context->cachedSecret.auxsecret);
-	context->cachedSecret.rs1 = NULL;
-	context->cachedSecret.rs1Length = 0;
-	context->cachedSecret.rs2 = NULL;
-	context->cachedSecret.rs2Length = 0;
-	context->cachedSecret.pbxsecret = NULL;
-	context->cachedSecret.pbxsecretLength = 0;
-	context->cachedSecret.auxsecret = NULL;
-	context->cachedSecret.auxsecretLength = 0;
-	context->cachedSecret.previouslyVerifiedSas = 0;
+// 	/* resert cached secret buffer */
+// 	free(context->cachedSecret.rs1);
+// 	free(context->cachedSecret.rs2);
+// 	free(context->cachedSecret.pbxsecret);
+// 	free(context->cachedSecret.auxsecret);
+// 	context->cachedSecret.rs1 = NULL;
+// 	context->cachedSecret.rs1Length = 0;
+// 	context->cachedSecret.rs2 = NULL;
+// 	context->cachedSecret.rs2Length = 0;
+// 	context->cachedSecret.pbxsecret = NULL;
+// 	context->cachedSecret.pbxsecretLength = 0;
+// 	context->cachedSecret.auxsecret = NULL;
+// 	context->cachedSecret.auxsecretLength = 0;
+// 	context->cachedSecret.previouslyVerifiedSas = 0;
 
-	return 0;
-}
+// 	return 0;
+// }
 
-int bzrtp_cache_write_active(bzrtpContext_t *context, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_write_active(bzrtpContext_t *context, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_write(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_write(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_write_lock(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount, bctbx_mutex_t *zidCacheMutex) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_write_lock(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount, bctbx_mutex_t *zidCacheMutex) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_read(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_read(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_read_lock(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount, bctbx_mutex_t *zidCacheMutex) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_read_lock(void *dbPointer, int zuid, const char *tableName, const char **columns, uint8_t **values, size_t *lengths, uint8_t columnsCount, bctbx_mutex_t *zidCacheMutex) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_migration(void *cacheXml, void *cacheSqlite, const char *selfURI) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
+// int bzrtp_cache_migration(void *cacheXml, void *cacheSqlite, const char *selfURI) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
 
-int bzrtp_cache_getPeerStatus_lock(void *dbPointer, const char *peerURI, bctbx_mutex_t *zidCacheMutex) {
-	return BZRTP_CACHE_PEER_STATUS_UNKNOWN;
-}
+// int bzrtp_cache_getPeerStatus_lock(void *dbPointer, const char *peerURI, bctbx_mutex_t *zidCacheMutex) {
+// 	return BZRTP_CACHE_PEER_STATUS_UNKNOWN;
+// }
 
-int bzrtp_cache_getZuid(void *dbPointer, const char *selfURI, const char *peerURI, const uint8_t peerZID[12], const uint8_t insertFlag, int *zuid, bctbx_mutex_t *zidCacheMutex) {
-	return BZRTP_ERROR_CACHEDISABLED;
-}
-#endif /* ZIDCACHE_ENABLED */
+// int bzrtp_cache_getZuid(void *dbPointer, const char *selfURI, const char *peerURI, const uint8_t peerZID[12], const uint8_t insertFlag, int *zuid, bctbx_mutex_t *zidCacheMutex) {
+// 	return BZRTP_ERROR_CACHEDISABLED;
+// }
+// #endif /* ZIDCACHE_ENABLED */

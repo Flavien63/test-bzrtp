@@ -94,12 +94,114 @@ int compareSecrets(bzrtpSrtpSecrets_t *a, bzrtpSrtpSecrets_t* b, uint8_t mainCha
 	return 0;
 }
 
+/*static int callback_getSelfZID(void *data, int argc, char **argv, char **colName)
+{
+    printf("Self Name : %s\n", argv[1]);
+    printf("Self ZID : ");
+    for (int i = 0; i < 12; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [(uint8_t) argv[0][i] / 16], "0123456789ABCDEF" [(uint8_t) argv[0][i] % 16]);
+    }
+    printf("\n");
+
+	return 0;
+}*/
+
+int printInformation(bzrtpContext_t *context, int SSRC)
+{
+    int retval = 0;
+
+    char * sql = sqlite3_mprintf("SELECT zid, zrtp.zuid FROM zrtp JOIN ziduri ON ziduri.zuid = zrtp.zuid WHERE ziduri.selfuri = ?;");
+    sqlite3_stmt *sqlStmt = NULL;
+
+    clientContext_t * clientContext = (clientContext_t *)context->channelContext[SSRC]->clientData;
+
+    retval = sqlite3_prepare_v2(context->zidCache, sql, -1, &sqlStmt, NULL);
+    sqlite3_free(sql);
+
+    if (retval != SQLITE_OK ) 
+    {
+        fprintf(stderr, "Failed to select data\n");
+
+        sqlite3_close(context->zidCache);
+                
+        return 1;
+    }
+    sqlite3_bind_text(sqlStmt, 1, context->selfURI, -1, SQLITE_TRANSIENT);
+
+    retval = sqlite3_step(sqlStmt);
+    if (retval != SQLITE_ROW)
+    {
+        sqlite3_finalize(sqlStmt);
+		return BZRTP_ZIDCACHE_UNABLETOREAD;
+    }
+
+    uint8_t * values = (uint8_t*) sqlite3_column_blob(sqlStmt, 0);
+
+    printf("Self ZID : ");
+    for (int i = 0; i < 12; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [(uint8_t) values[i] / 16], "0123456789ABCDEF" [(uint8_t) values[i] % 16]);
+    }
+    printf("\n");
+
+    uint8_t * signatureHash = (uint8_t *)malloc(context->channelContext[SSRC]->hashLength * sizeof(uint8_t));
+    bctbx_sha256(clientContext->publicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, context->channelContext[SSRC]->hashLength, signatureHash);
+    printf("Self Signature Public Key Hash : ");
+    for (int i = 0; i < context->channelContext[SSRC]->hashLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
+    }
+    printf("\n");
+    printf("Self SRTP Master Key : ");
+    for (int i = 0; i < context->channelContext[SSRC]->srtpSecrets.selfSrtpKeyLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.selfSrtpKey[i] / 16], "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.selfSrtpKey[i] % 16]);
+    }
+    printf("\n");
+    printf("Self SRTP Master Salt : ");
+    for (int i = 0; i < context->channelContext[SSRC]->srtpSecrets.selfSrtpSaltLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.selfSrtpSalt[i] / 16], "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.selfSrtpSalt[i] % 16]);
+    }
+    printf("\n");
+    printf("Peer ZID : ");
+    for (int i = 0; i < 12; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [context->peerZID[i] / 16], "0123456789ABCDEF" [context->peerZID[i] % 16]);
+    }
+    printf("\n");
+    bctbx_sha256(clientContext->peerPublicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, context->channelContext[SSRC]->hashLength, signatureHash);
+    printf("Peer Signature Public Key Hash : ");
+    for (int i = 0; i < context->channelContext[SSRC]->hashLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
+    }
+    printf("\n");
+    printf("Peer SRTP Master Key : ");
+    for (int i = 0; i < context->channelContext[SSRC]->srtpSecrets.peerSrtpKeyLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.peerSrtpKey[i] / 16], "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.peerSrtpKey[i] % 16]);
+    }
+    printf("\n");
+    printf("Peer SRTP Master Salt : ");
+    for (int i = 0; i < context->channelContext[SSRC]->srtpSecrets.peerSrtpSaltLength; i++)
+    {
+        printf("%c%c", "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.peerSrtpSalt[i] / 16], "0123456789ABCDEF" [context->channelContext[SSRC]->srtpSecrets.peerSrtpSalt[i] % 16]);
+    }
+    printf("\n");
+
+    free(signatureHash);       
+
+    return 0; 
+}
+
 /*
  * @brief Main fonction thanks we use the BZRTP protocol
  * 
  * @return return 0 if success
  */
-int main(int args, char *argv[])
+int main(int argc, char *argv[])
 {
     /* Creation of the context of which client, there is two clients, Alice and Bob */
     bzrtpContext_t * contextAlice = bzrtp_createBzrtpContext();
@@ -111,6 +213,16 @@ int main(int args, char *argv[])
     /* The channel in which we want to communciate, here we are doing this to the channel zero */
     int AliceSSRC = 0;
     int BobSSRC = 0;
+
+    if (argc > 1)
+    {
+        printf("Useless argument behind the executive\n");
+    }
+
+    if (argv[0])
+    {
+        printf("Protocol ZRTP begin\n");
+    }
 
     /* The algorithm that Alice can use with BZRTP */
     int authTagLengthAlice = 4;
@@ -144,6 +256,18 @@ int main(int args, char *argv[])
         printf("Mistake about the bzrtp_createBzrtpContext\n");
         return ERROR_CREATE_CONTEXT;
     }
+
+    sqlite3 * dbPointer;
+    retval = sqlite3_open("ZRTPCache.db", &dbPointer);
+
+    if (retval)
+    {
+        printf("Mistake while opening the database : %d\n", retval);
+        return retval;
+    }
+
+    retval = bzrtp_setZIDCache(contextAlice, dbPointer, "Alice", "Bob");
+    retval = bzrtp_setZIDCache(contextBob, dbPointer, "Bob", "Alice");
 
     /* We are searching if the context init was good or not and we are doing the init by the same time */
     if (bzrtp_initBzrtpContext(contextAlice, AliceSSRC) || bzrtp_initBzrtpContext(contextBob, BobSSRC))
@@ -183,6 +307,23 @@ int main(int args, char *argv[])
 
     /* Now we are setting the clientData by the client context */
     retval = bzrtp_setClientData(contextAlice, AliceSSRC, Alice) || bzrtp_setClientData(contextBob, BobSSRC, Bob);
+    const char * colNames[] = {"publicKey", "privateKey"};
+    uint8_t * colValues[2] = {Alice->publicKeySignature, Alice->privateKeySignature};
+    size_t colLength[2] = {PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_SECRETKEYBYTES};
+    /* before writing into cache, we must check we have the zuid correctly set, if not (it's our first successfull exchange with peer), insert it*/
+	if (contextAlice->zuid==0) {
+		bzrtp_cache_getZuid((void *)contextAlice->zidCache, contextAlice->selfURI, contextAlice->peerURI, contextAlice->peerZID, BZRTP_ZIDCACHE_INSERT_ZUID, &contextAlice->zuid, contextAlice->zidCacheMutex);
+	}
+    bzrtp_cache_write_active(contextAlice, "zrtp", colNames, colValues, colLength, 2);
+
+    colValues[0] = Bob->publicKeySignature;
+    colValues[1] = Bob->privateKeySignature;
+    /* before writing into cache, we must check we have the zuid correctly set, if not (it's our first successfull exchange with peer), insert it*/
+	if (contextBob->zuid==0) {
+		bzrtp_cache_getZuid((void *)contextBob->zidCache, contextBob->selfURI, contextBob->peerURI, contextBob->peerZID, BZRTP_ZIDCACHE_INSERT_ZUID, &contextBob->zuid, contextBob->zidCacheMutex);
+	}
+    bzrtp_cache_write_active(contextBob, "zrtp", colNames, colValues, colLength, 2);
+
     
     /* We are searching if the set was good or not */
     if (retval)
@@ -476,115 +617,15 @@ int main(int args, char *argv[])
         /* Checking if the secrets are the same */
         retval = compareSecrets(&contextAlice->channelContext[AliceSSRC]->srtpSecrets, &contextBob->channelContext[BobSSRC]->srtpSecrets, TRUE);
 
+        bzrtp_SASVerified(contextAlice);
+        bzrtp_SASVerified(contextBob);
+
         if (retval == 0)
         {
             printf("The SRTP secrets are the same\n");
 
-            /* printf Alice's information */
-            printf("Self ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->selfZID[i] / 16], "0123456789ABCDEF" [contextAlice->selfZID[i] % 16]);
-            }
-            printf("\n");
-            uint8_t * signatureHash = (uint8_t *)malloc(contextAlice->channelContext[AliceSSRC]->hashLength * sizeof(uint8_t));
-            bctbx_sha256(Alice->publicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextAlice->channelContext[AliceSSRC]->hashLength, signatureHash);
-            printf("Self Signature Public Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKey[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Salt : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSalt[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->peerZID[i] / 16], "0123456789ABCDEF" [contextAlice->peerZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Alice->peerPublicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextAlice->channelContext[AliceSSRC]->hashLength, signatureHash);
-            printf("Peer Signature Public Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKey[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Salt : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSalt[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-
-            /* printf Bob's information */
-            printf("Self ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->selfZID[i] / 16], "0123456789ABCDEF" [contextBob->selfZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Bob->publicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextBob->channelContext[BobSSRC]->hashLength, signatureHash);
-            printf("Self Signature Public Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKey[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Salt : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSalt[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->peerZID[i] / 16], "0123456789ABCDEF" [contextBob->peerZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Bob->peerPublicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextBob->channelContext[BobSSRC]->hashLength, signatureHash);
-            printf("Peer Signature Public Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKey[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Salt : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSalt[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            free(signatureHash);
+            retval = printInformation(contextAlice, AliceSSRC);
+            printInformation(contextBob, BobSSRC);
         }
         else
             printf("Error in : %d\n", retval);
@@ -783,111 +824,8 @@ int main(int args, char *argv[])
         {
             printf("The SRTP secrets are the same\n");
 
-            /* printf Alice's information */
-            printf("Self ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->selfZID[i] / 16], "0123456789ABCDEF" [contextAlice->selfZID[i] % 16]);
-            }
-            printf("\n");
-            uint8_t * signatureHash = (uint8_t *)malloc(contextAlice->channelContext[AliceSSRC]->hashLength * sizeof(uint8_t));
-            bctbx_sha256(Alice->publicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextAlice->channelContext[AliceSSRC]->hashLength, signatureHash);
-            printf("Self Signature Public Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKey[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Salt : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSalt[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.selfSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->peerZID[i] / 16], "0123456789ABCDEF" [contextAlice->peerZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Alice->peerPublicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextAlice->channelContext[AliceSSRC]->hashLength, signatureHash);
-            printf("Peer Signature Public Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Key : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKey[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Salt : ");
-            for (int i = 0; i < contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSalt[i] / 16], "0123456789ABCDEF" [contextAlice->channelContext[AliceSSRC]->srtpSecrets.peerSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-
-            /* printf Bob's information */
-            printf("Self ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->selfZID[i] / 16], "0123456789ABCDEF" [contextBob->selfZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Bob->publicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextBob->channelContext[BobSSRC]->hashLength, signatureHash);
-            printf("Self Signature Public Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKey[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Self SRTP Master Salt : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSalt[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.selfSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer ZID : ");
-            for (int i = 0; i < 12; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->peerZID[i] / 16], "0123456789ABCDEF" [contextBob->peerZID[i] % 16]);
-            }
-            printf("\n");
-            bctbx_sha256(Bob->peerPublicKeySignature, PQCLEAN_DILITHIUM5_CLEAN_CRYPTO_PUBLICKEYBYTES, contextBob->channelContext[BobSSRC]->hashLength, signatureHash);
-            printf("Peer Signature Public Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->hashLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [signatureHash[i] / 16], "0123456789ABCDEF" [signatureHash[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Key : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKeyLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKey[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpKey[i] % 16]);
-            }
-            printf("\n");
-            printf("Peer SRTP Master Salt : ");
-            for (int i = 0; i < contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSaltLength; i++)
-            {
-                printf("%c%c", "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSalt[i] / 16], "0123456789ABCDEF" [contextBob->channelContext[BobSSRC]->srtpSecrets.peerSrtpSalt[i] % 16]);
-            }
-            printf("\n");
-            free(signatureHash);
+            printInformation(contextAlice, AliceSSRC);
+            printInformation(contextBob, BobSSRC);
         }
         else
             printf("Error in : %d\n", retval);
@@ -899,6 +837,8 @@ int main(int args, char *argv[])
 
     destroyClient(Alice);
     destroyClient(Bob);
+
+    sqlite3_close(dbPointer);
 
     bzrtp_destroyBzrtpContext(contextAlice, AliceSSRC);
     bzrtp_destroyBzrtpContext(contextBob, BobSSRC);

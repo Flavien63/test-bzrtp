@@ -189,7 +189,7 @@ void PQCLEAN_DILITHIUM5_CLEAN_pack_sig(uint8_t sig[PQCLEAN_DILITHIUM5_CLEAN_CRYP
 
     k = 0;
     for (i = 0; i < K; ++i) {
-        for (j = 0; j < N; ++j) {
+        for (j = 0; j < N_DILITHIUM; ++j) {
             if (h->vec[i].coeffs[j] != 0) {
                 sig[k++] = (uint8_t) j;
             }
@@ -231,7 +231,7 @@ int PQCLEAN_DILITHIUM5_CLEAN_unpack_sig(uint8_t c[SEEDBYTES],
     /* Decode h */
     k = 0;
     for (i = 0; i < K; ++i) {
-        for (j = 0; j < N; ++j) {
+        for (j = 0; j < N_DILITHIUM; ++j) {
             h->vec[i].coeffs[j] = 0;
         }
 

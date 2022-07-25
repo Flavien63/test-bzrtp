@@ -1,0 +1,1 @@
+/usr/bin/cc -fPIC   -shared -Wl,-soname,libbzrtp.so.0 -o libbzrtp.so.0 CMakeFiles/bzrtp.dir/bzrtp.c.o CMakeFiles/bzrtp.dir/cryptoUtils.c.o CMakeFiles/bzrtp.dir/packetParser.c.o CMakeFiles/bzrtp.dir/pgpwords.c.o CMakeFiles/bzrtp.dir/stateMachine.c.o CMakeFiles/bzrtp.dir/zidCache.c.o  -lbctoolbox -lsqlite3 -lxml2 

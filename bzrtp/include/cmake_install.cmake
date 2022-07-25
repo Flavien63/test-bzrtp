@@ -1,4 +1,4 @@
-# Install script for directory: /home/flavien/test-bzrtp/firstProgram/bzrtp/include
+# Install script for directory: /home/flavien/test-bzrtp/bzrtp/include
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -38,6 +38,6 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/bzrtp" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "/home/flavien/test-bzrtp/firstProgram/bzrtp/include/bzrtp/bzrtp.h")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/bzrtp" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "/home/flavien/test-bzrtp/bzrtp/include/bzrtp/bzrtp.h")
 endif()
 

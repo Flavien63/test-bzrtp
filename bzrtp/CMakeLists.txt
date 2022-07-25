@@ -30,7 +30,7 @@ endif()
 
 project(bzrtp VERSION 5.2.0 LANGUAGES C CXX)
 
-option(ENABLE_SHARED "Build shared library." OFF)
+option(ENABLE_SHARED "Build shared library." ON)
 option(ENABLE_STATIC "Build static library." OFF)
 option(ENABLE_ZIDCACHE "Turn on compilation of ZID cache, request sqlite" ON)
 option(ENABLE_STRICT "Build with strict compile options." OFF)
