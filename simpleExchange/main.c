@@ -111,7 +111,7 @@ int printInformation(bzrtpContext_t *context, int SSRC)
 {
     int retval = 0;
 
-    char * sql = sqlite3_mprintf("SELECT zid, zrtp.zuid FROM zrtp JOIN ziduri ON ziduri.zuid = zrtp.zuid WHERE ziduri.selfuri = ?;");
+    char * sql = sqlite3_mprintf("SELECT zid, publicKey FROM zrtp JOIN ziduri ON ziduri.zuid = zrtp.zuid WHERE ziduri.selfuri = ? AND active = 1;");
     sqlite3_stmt *sqlStmt = NULL;
 
     clientContext_t * clientContext = (clientContext_t *)context->channelContext[SSRC]->clientData;
@@ -121,6 +121,7 @@ int printInformation(bzrtpContext_t *context, int SSRC)
 
     if (retval != SQLITE_OK ) 
     {
+        printf("%d\n", retval);
         fprintf(stderr, "Failed to select data\n");
 
         sqlite3_close(context->zidCache);
